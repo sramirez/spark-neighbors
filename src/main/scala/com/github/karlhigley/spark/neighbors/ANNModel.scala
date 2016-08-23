@@ -1,7 +1,7 @@
 package com.github.karlhigley.spark.neighbors
 
 import org.apache.spark.rdd.RDD
-import org.apache.spark.mllib.linalg.SparseVector
+import org.apache.spark.mllib.linalg.{ Vector => MLLibVector, SparseVector }
 import org.apache.spark.mllib.rdd.MLPairRDDFunctions._
 import org.apache.spark.storage.StorageLevel
 
@@ -14,15 +14,14 @@ import com.github.karlhigley.spark.neighbors.lsh.{ HashTableEntry, LSHFunction, 
  * for each supplied vector.
  */
 class ANNModel private[neighbors] (
-    private[neighbors] val hashTables: RDD[_ <: HashTableEntry[_]],
+  private[neighbors] val hashTables: RDD[_ <: HashTableEntry[_]],
     private[neighbors] val hashFunctions: Array[_ <: LSHFunction[_]],
     private[neighbors] val collisionStrategy: CollisionStrategy,
     private[neighbors] val measure: DistanceMeasure,
     private[neighbors] val numPoints: Int
 ) extends Serializable {
 
-  type Point = (Long, SparseVector)
-  type CandidateGroup = Iterable[Point]
+  import ANNModel._
 
   /**
    * Identify pairs of nearest neighbors by applying a
@@ -31,7 +30,9 @@ class ANNModel private[neighbors] (
    */
   def neighbors(quantity: Int): RDD[(Long, Array[(Long, Double)])] = {
     val candidates = collisionStrategy.apply(hashTables).groupByKey(hashTables.getNumPartitions).values
+
     val neighbors = computeDistances(candidates)
+
     neighbors.topByKey(quantity)(ANNModel.ordering)
   }
 
@@ -116,9 +117,14 @@ class ANNModel private[neighbors] (
         case ((id1, id2), dist) => (id1, (id2, dist))
       }
   }
+
 }
 
 object ANNModel {
+
+  type Point = (Long, MLLibVector)
+  type CandidateGroup = Iterable[Point]
+
   private val ordering = Ordering[Double].on[(Long, Double)](_._2).reverse
 
   /**
@@ -126,14 +132,17 @@ object ANNModel {
    * points
    */
   def train(
-    points: RDD[(Long, SparseVector)],
+    points: RDD[(Long, MLLibVector)],
     hashFunctions: Array[_ <: LSHFunction[_]],
     collisionStrategy: CollisionStrategy,
     measure: DistanceMeasure,
     persistenceLevel: StorageLevel
   ): ANNModel = {
+
     val hashTables: RDD[_ <: HashTableEntry[_]] = generateHashTable(points, hashFunctions)
+
     hashTables.persist(persistenceLevel)
+
     new ANNModel(
       hashTables,
       hashFunctions,
@@ -141,19 +150,22 @@ object ANNModel {
       measure,
       points.count().toInt
     )
+
   }
 
   def generateHashTable(
-    points: RDD[(Long, SparseVector)],
+    points: RDD[(Long, MLLibVector)],
     hashFunctions: Array[_ <: LSHFunction[_]]
   ): RDD[_ <: HashTableEntry[_]] = {
+
     val indHashFunctions: Array[(_ <: LSHFunction[_], Int)] = hashFunctions.zipWithIndex
+
     points.flatMap {
       case (id, vector) =>
         indHashFunctions.map {
-          case (hashFunc, table) =>
-            hashFunc.hashTableEntry(id, table, vector)
+          case (hashFunc, table) => hashFunc.hashTableEntry(id, table, vector)
         }
     }
   }
+
 }

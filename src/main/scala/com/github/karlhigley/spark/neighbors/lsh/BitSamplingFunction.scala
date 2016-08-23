@@ -3,7 +3,7 @@ package com.github.karlhigley.spark.neighbors.lsh
 import java.util.Random
 import scala.collection.immutable.BitSet
 
-import org.apache.spark.mllib.linalg.SparseVector
+import org.apache.spark.mllib.linalg.{ Vector => MLLibVector, SparseVector }
 
 /**
  *
@@ -21,15 +21,15 @@ private[neighbors] class BitSamplingFunction(
   /**
    * Compute the hash signature of the supplied vector
    */
-  def signature(vector: SparseVector): BitSignature = {
-    val sampled = vector.indices.intersect(sampledBits)
+  def signature(vector: MLLibVector): BitSignature = {
+    val sampled = vector.asInstanceOf[SparseVector].indices.intersect(sampledBits)
     new BitSignature(BitSet(sampled: _*))
   }
 
   /**
    * Build a hash table entry for the supplied vector
    */
-  def hashTableEntry(id: Long, table: Int, v: SparseVector): BitHashTableEntry = {
+  def hashTableEntry(id: Long, table: Int, v: MLLibVector): BitHashTableEntry = {
     BitHashTableEntry(id, table, signature(v), v)
   }
 }

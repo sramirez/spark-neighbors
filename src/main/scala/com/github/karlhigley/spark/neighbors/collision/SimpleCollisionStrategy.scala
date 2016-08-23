@@ -1,12 +1,10 @@
 package com.github.karlhigley.spark.neighbors.collision
 
-import scala.util.hashing.MurmurHash3
-
-import org.apache.spark.mllib.linalg.SparseVector
+import com.github.karlhigley.spark.neighbors.lsh.HashTableEntry
 import org.apache.spark.rdd.RDD
-import org.apache.spark.storage.StorageLevel
 
-import com.github.karlhigley.spark.neighbors.lsh.{ BitSignature, HashTableEntry, IntSignature }
+import scala.util.hashing.MurmurHash3
+import com.github.karlhigley.spark.neighbors.ANNModel.Point
 
 /**
  * A very simple collision strategy for candidate identification

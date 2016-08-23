@@ -3,7 +3,7 @@ package com.github.karlhigley.spark.neighbors
 import org.scalatest.FunSuite
 
 import org.apache.spark.rdd.RDD
-import org.apache.spark.mllib.linalg.SparseVector
+import org.apache.spark.mllib.linalg.{ Vector => MLLibVector }
 
 import com.github.karlhigley.spark.neighbors.lsh.HashTableEntry
 
@@ -12,7 +12,7 @@ class ANNModelSuite extends FunSuite with TestSparkContext {
   val dimensions = 100
   val density = 0.5
 
-  var points: RDD[(Long, SparseVector)] = _
+  var points: RDD[(Long, MLLibVector)] = _
 
   override def beforeAll() {
     super.beforeAll()

@@ -8,6 +8,8 @@ import org.apache.spark.storage.StorageLevel
 
 import com.github.karlhigley.spark.neighbors.lsh.{ BitSignature, HashTableEntry, IntSignature }
 
+import com.github.karlhigley.spark.neighbors.ANNModel.Point
+
 /**
  * A banding collision strategy for candidate identification with Minhash
  */

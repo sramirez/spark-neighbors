@@ -2,7 +2,7 @@ package com.github.karlhigley.spark.neighbors.lsh
 
 import java.util.Random
 
-import org.apache.spark.mllib.linalg.SparseVector
+import org.apache.spark.mllib.linalg.{ Vector => MLLibVector, SparseVector }
 
 /**
  *
@@ -12,9 +12,8 @@ import org.apache.spark.mllib.linalg.SparseVector
  *
  * @see [[https://en.wikipedia.org/wiki/MinHash MinHash (Wikipedia)]]
  */
-private[neighbors] class MinhashFunction(
-    private[this] val permutations: Array[PermutationFunction]
-) extends LSHFunction[IntSignature] with Serializable {
+private[neighbors] class MinhashFunction(private[this] val permutations: Array[PermutationFunction])
+    extends LSHFunction[IntSignature] with Serializable {
 
   /**
    * Compute minhash signature for a vector.
@@ -24,9 +23,9 @@ private[neighbors] class MinhashFunction(
    * as a member of the set. Note that "active" includes explicit
    * zeros, which should not (but still might) be present in SparseVectors.
    */
-  def signature(vector: SparseVector): IntSignature = {
+  def signature(vector: MLLibVector): IntSignature = {
     val sig = permutations.map(p => {
-      vector.indices.map(p.apply).min
+      vector.asInstanceOf[SparseVector].indices.map(p.apply).min
     })
 
     new IntSignature(sig)
@@ -35,9 +34,10 @@ private[neighbors] class MinhashFunction(
   /**
    * Build a hash table entry for the supplied vector
    */
-  def hashTableEntry(id: Long, table: Int, v: SparseVector): IntHashTableEntry = {
+  def hashTableEntry(id: Long, table: Int, v: MLLibVector): IntHashTableEntry = {
     IntHashTableEntry(id, table, signature(v), v)
   }
+
 }
 
 private[neighbors] object MinhashFunction {
@@ -61,4 +61,5 @@ private[neighbors] object MinhashFunction {
 
     new MinhashFunction(perms)
   }
+
 }

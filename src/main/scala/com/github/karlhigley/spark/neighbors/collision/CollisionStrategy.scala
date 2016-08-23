@@ -1,9 +1,8 @@
 package com.github.karlhigley.spark.neighbors.collision
 
-import org.apache.spark.mllib.linalg.SparseVector
-import org.apache.spark.rdd.RDD
-
+import com.github.karlhigley.spark.neighbors.ANNModel.Point
 import com.github.karlhigley.spark.neighbors.lsh.HashTableEntry
+import org.apache.spark.rdd.RDD
 
 /**
  * Abstract base class for approaches to identifying collisions from
@@ -13,7 +12,6 @@ import com.github.karlhigley.spark.neighbors.lsh.HashTableEntry
  * and banding (for minhash LSH).
  */
 private[neighbors] abstract class CollisionStrategy {
-  type Point = (Long, SparseVector)
 
   def apply(hashTables: RDD[_ <: HashTableEntry[_]]): RDD[(Product, Point)]
 }

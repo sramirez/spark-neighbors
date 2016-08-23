@@ -1,7 +1,7 @@
 package com.github.karlhigley.spark.neighbors.linalg
 
 import breeze.linalg.norm
-import org.apache.spark.mllib.linalg.{ SparseVector, Vectors }
+import org.apache.spark.mllib.linalg.{ SparseVector, Vectors, Vector => MLLibVector }
 
 import org.apache.spark.mllib.linalg.LinalgShim
 
@@ -17,7 +17,7 @@ import org.apache.spark.mllib.linalg.LinalgShim
  * similarly nonetheless.)
  */
 private[neighbors] sealed abstract class DistanceMeasure extends Serializable {
-  def compute(v1: SparseVector, v2: SparseVector): Double
+  def compute(v1: MLLibVector, v2: MLLibVector): Double
 }
 
 private[neighbors] final object CosineDistance extends DistanceMeasure {
@@ -30,7 +30,7 @@ private[neighbors] final object CosineDistance extends DistanceMeasure {
    * replaced with a direct invocation of the appropriate
    * BLAS method.
    */
-  def compute(v1: SparseVector, v2: SparseVector): Double = {
+  def compute(v1: MLLibVector, v2: MLLibVector): Double = {
     val dotProduct = LinalgShim.dot(v1, v2)
     val norms = Vectors.norm(v1, 2) * Vectors.norm(v2, 2)
     1.0 - (math.abs(dotProduct) / norms)
@@ -43,7 +43,7 @@ private[neighbors] final object EuclideanDistance extends DistanceMeasure {
    * Compute Euclidean distance between vectors using
    * MLlib's public vector distance functionality
    */
-  def compute(v1: SparseVector, v2: SparseVector): Double = {
+  def compute(v1: MLLibVector, v2: MLLibVector): Double = {
     val b1 = LinalgShim.toBreeze(v1)
     val b2 = LinalgShim.toBreeze(v2)
     norm(b1 - b2, 2.0)
@@ -56,7 +56,7 @@ private[neighbors] final object ManhattanDistance extends DistanceMeasure {
    * Compute Manhattan distance between vectors using
    * Breeze vector operations
    */
-  def compute(v1: SparseVector, v2: SparseVector): Double = {
+  def compute(v1: MLLibVector, v2: MLLibVector): Double = {
     val b1 = LinalgShim.toBreeze(v1)
     val b2 = LinalgShim.toBreeze(v2)
     norm(b1 - b2, 1.0)
@@ -72,11 +72,12 @@ private[neighbors] final object HammingDistance extends DistanceMeasure {
    * sparse vectors and considers any active (i.e. non-zero)
    * index to represent a set bit
    */
-  def compute(v1: SparseVector, v2: SparseVector): Double = {
-    val i1 = v1.indices.toSet
-    val i2 = v2.indices.toSet
+  def compute(v1: MLLibVector, v2: MLLibVector): Double = {
+    val i1 = v1.asInstanceOf[SparseVector].indices.toSet
+    val i2 = v2.asInstanceOf[SparseVector].indices.toSet
     (i1.union(i2).size - i1.intersect(i2).size).toDouble
   }
+
 }
 
 private[neighbors] final object JaccardDistance extends DistanceMeasure {
@@ -88,11 +89,12 @@ private[neighbors] final object JaccardDistance extends DistanceMeasure {
    * sparse vectors and considers any active (i.e. non-zero)
    * index to represent a member of the set
    */
-  def compute(v1: SparseVector, v2: SparseVector): Double = {
-    val indices1 = v1.indices.toSet
-    val indices2 = v2.indices.toSet
+  def compute(v1: MLLibVector, v2: MLLibVector): Double = {
+    val indices1 = v1.asInstanceOf[SparseVector].indices.toSet
+    val indices2 = v2.asInstanceOf[SparseVector].indices.toSet
     val intersection = indices1.intersect(indices2)
     val union = indices1.union(indices2)
     1.0 - (intersection.size / union.size.toDouble)
   }
+
 }
