@@ -14,12 +14,14 @@ class ANNSuite extends FunSuite with TestSparkContext {
   val dimensions = 100
   val density = 0.5
 
-  var points: RDD[(Long, MLLibVector)] = _
+  var sparsePoints: RDD[(Long, MLLibVector)] = _
+  var densePoints: RDD[(Long, MLLibVector)] = _
 
   override def beforeAll() {
     super.beforeAll()
     val localPoints = TestHelpers.generateRandomPoints(numPoints, dimensions, density)
-    points = sc.parallelize(localPoints).zipWithIndex.map(_.swap)
+    sparsePoints = sc.parallelize(localPoints).zipWithIndex.map(_.swap)
+    densePoints = sparsePoints.mapValues(_.toDense)
   }
 
   test("compute hamming nearest neighbors as a batch") {
@@ -28,7 +30,7 @@ class ANNSuite extends FunSuite with TestSparkContext {
         .setTables(1)
         .setSignatureLength(16)
 
-    val model = ann.train(points)
+    val model = ann.train(sparsePoints)
     val neighbors = model.neighbors(10)
 
     val localHashTables = model.hashTables.collect()
@@ -43,7 +45,7 @@ class ANNSuite extends FunSuite with TestSparkContext {
         .setTables(1)
         .setSignatureLength(4)
 
-    val model = ann.train(points)
+    val model = ann.train(sparsePoints)
     val neighbors = model.neighbors(10)
 
     val localHashTables = model.hashTables.collect()
@@ -59,7 +61,23 @@ class ANNSuite extends FunSuite with TestSparkContext {
         .setSignatureLength(4)
         .setBucketWidth(2)
 
-    val model = ann.train(points)
+    val model = ann.train(sparsePoints)
+    val neighbors = model.neighbors(10)
+
+    val localHashTables = model.hashTables.collect()
+    val localNeighbors = neighbors.collect()
+
+    runAssertions(localHashTables, localNeighbors)
+  }
+
+  test("compute euclidean nearest neighbors as a batch - dense vectors") {
+    val ann =
+      new ANN(dimensions, "euclidean")
+        .setTables(1)
+        .setSignatureLength(4)
+        .setBucketWidth(2)
+
+    val model = ann.train(densePoints)
     val neighbors = model.neighbors(10)
 
     val localHashTables = model.hashTables.collect()
@@ -75,7 +93,7 @@ class ANNSuite extends FunSuite with TestSparkContext {
         .setSignatureLength(4)
         .setBucketWidth(25)
 
-    val model = ann.train(points)
+    val model = ann.train(sparsePoints)
     val neighbors = model.neighbors(10)
 
     val localHashTables = model.hashTables.collect()
@@ -92,7 +110,7 @@ class ANNSuite extends FunSuite with TestSparkContext {
         .setBands(4)
         .setPrimeModulus(739)
 
-    val model = ann.train(points)
+    val model = ann.train(sparsePoints)
     val neighbors = model.neighbors(10)
 
     val localHashTables = model.hashTables.collect()
@@ -133,9 +151,9 @@ class ANNSuite extends FunSuite with TestSparkContext {
         .setTables(1)
         .setSignatureLength(4)
 
-    val model = ann.train(points)
+    val model = ann.train(sparsePoints)
 
-    val queryPoints = points.sample(withReplacement = false, fraction = 0.01)
+    val queryPoints = sparsePoints.sample(withReplacement = false, fraction = 0.01)
     val approxNeighbors = model.neighbors(queryPoints, 10)
 
     assert(approxNeighbors.count() == queryPoints.count())
