@@ -23,9 +23,11 @@ private[neighbors] class SimpleCollisionStrategy extends CollisionStrategy with 
       // Arrays are mutable and can't be used in RDD keys
       // Use a hash value (i.e. an int) as a substitute
       val key = (entry.table, MurmurHash3.arrayHash(entry.sigElements)).asInstanceOf[Product]
+
       (key, (entry.id, entry.point))
     })
 
     entries
   }
+
 }

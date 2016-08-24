@@ -1,38 +1,30 @@
 package com.github.karlhigley.spark.neighbors
 
-import java.util.{ Random => JavaRandom }
+import java.util.{Random => JavaRandom}
+
+import com.github.karlhigley.spark.neighbors.collision.{BandingCollisionStrategy, SimpleCollisionStrategy}
+import com.github.karlhigley.spark.neighbors.linalg._
+import com.github.karlhigley.spark.neighbors.lsh.{BitSamplingFunction, MinhashFunction, ScalarRandomProjectionFunction, SignRandomProjectionFunction}
+import org.apache.spark.mllib.linalg.{Vector => MLLibVector}
+import org.apache.spark.rdd.RDD
+import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel.MEMORY_AND_DISK
 
 import scala.util.Random
 
-import org.apache.spark.rdd.RDD
-import org.apache.spark.mllib.linalg.{ Vector => MLLibVector }
-import org.apache.spark.storage.StorageLevel
-
-import com.github.karlhigley.spark.neighbors.collision.{ BandingCollisionStrategy, CollisionStrategy, SimpleCollisionStrategy }
-import com.github.karlhigley.spark.neighbors.linalg._
-import com.github.karlhigley.spark.neighbors.lsh.LSHFunction
-import com.github.karlhigley.spark.neighbors.lsh.BitSamplingFunction
-import com.github.karlhigley.spark.neighbors.lsh.MinhashFunction
-import com.github.karlhigley.spark.neighbors.lsh.ScalarRandomProjectionFunction
-import com.github.karlhigley.spark.neighbors.lsh.SignRandomProjectionFunction
-
 /**
  * Approximate Nearest Neighbors (ANN) using locality-sensitive hashing (LSH)
  *
- * @see [[https://en.wikipedia.org/wiki/Nearest_neighbor_search Nearest neighbor search
- *       (Wikipedia)]]
+ * @see [[https://en.wikipedia.org/wiki/Nearest_neighbor_search Nearest neighbor search (Wikipedia)]]
  */
-class ANN private (
-  private var measureName: String,
-    private var origDimension: Int,
-    private var numTables: Int,
-    private var signatureLength: Int,
-    private var bucketWidth: Double,
-    private var primeModulus: Int,
-    private var numBands: Int,
-    private var randomSeed: Int
-) {
+class ANN private (private var measureName: String,
+                   private var origDimension: Int,
+                   private var numTables: Int,
+                   private var signatureLength: Int,
+                   private var bucketWidth: Double,
+                   private var primeModulus: Int,
+                   private var numBands: Int,
+                   private var randomSeed: Int) {
 
   /**
    * Constructs an ANN instance with default parameters.
@@ -161,10 +153,8 @@ class ANN private (
    *                   IDs must be unique and >= 0.
    * @return ANNModel containing computed hash tables
    */
-  def train(
-    points: RDD[(Long, MLLibVector)],
-    persistenceLevel: StorageLevel = MEMORY_AND_DISK
-  ): ANNModel = {
+  def train(points: RDD[(Long, MLLibVector)],
+            persistenceLevel: StorageLevel = MEMORY_AND_DISK): ANNModel = {
 
     val random = new JavaRandom(randomSeed)
 

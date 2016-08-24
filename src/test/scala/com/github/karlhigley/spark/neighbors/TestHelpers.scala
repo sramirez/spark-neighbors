@@ -5,6 +5,7 @@ import scala.util.Random
 import org.apache.spark.mllib.linalg.{ Vector => MLLibVector, SparseVector }
 
 object TestHelpers {
+
   def generateRandomPoints(quantity: Int, dimensions: Int, density: Double) = {
     val numElements = math.floor(dimensions * density).toInt
     val points = new Array[MLLibVector](quantity)
@@ -40,4 +41,5 @@ object TestHelpers {
     }
     values
   }
+
 }
