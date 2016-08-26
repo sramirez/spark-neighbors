@@ -1,11 +1,12 @@
 package com.github.karlhigley.spark.neighbors
 
-import java.util.{Random => JavaRandom}
+import java.util.{ Random => JavaRandom }
 
-import com.github.karlhigley.spark.neighbors.collision.{BandingCollisionStrategy, SimpleCollisionStrategy}
+import com.github.karlhigley.spark.neighbors.ANNModel.Point
+import com.github.karlhigley.spark.neighbors.collision.{ BandingCollisionStrategy, SimpleCollisionStrategy }
 import com.github.karlhigley.spark.neighbors.linalg._
-import com.github.karlhigley.spark.neighbors.lsh.{BitSamplingFunction, MinhashFunction, ScalarRandomProjectionFunction, SignRandomProjectionFunction}
-import org.apache.spark.mllib.linalg.{Vector => MLLibVector}
+import com.github.karlhigley.spark.neighbors.lsh._
+import org.apache.spark.mllib.linalg.{ Vector => MLLibVector }
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel.MEMORY_AND_DISK
@@ -17,14 +18,16 @@ import scala.util.Random
  *
  * @see [[https://en.wikipedia.org/wiki/Nearest_neighbor_search Nearest neighbor search (Wikipedia)]]
  */
-class ANN private (private var measureName: String,
-                   private var origDimension: Int,
-                   private var numTables: Int,
-                   private var signatureLength: Int,
-                   private var bucketWidth: Double,
-                   private var primeModulus: Int,
-                   private var numBands: Int,
-                   private var randomSeed: Int) {
+class ANN private (
+    private var measureName: String,
+    private var origDimension: Int,
+    private var numTables: Int,
+    private var signatureLength: Int,
+    private var bucketWidth: Double,
+    private var primeModulus: Int,
+    private var numBands: Int,
+    private var randomSeed: Int
+) {
 
   /**
    * Constructs an ANN instance with default parameters.
@@ -153,8 +156,10 @@ class ANN private (private var measureName: String,
    *                   IDs must be unique and >= 0.
    * @return ANNModel containing computed hash tables
    */
-  def train(points: RDD[(Long, MLLibVector)],
-            persistenceLevel: StorageLevel = MEMORY_AND_DISK): ANNModel = {
+  def train(
+    points: RDD[Point],
+    persistenceLevel: StorageLevel = MEMORY_AND_DISK
+  ): ANNModel = {
 
     val random = new JavaRandom(randomSeed)
 
@@ -235,4 +240,75 @@ class ANN private (private var measureName: String,
       persistenceLevel
     )
   }
+
+  def train(points: Iterable[Point]): SimpleANNModel = {
+
+    val random = new JavaRandom(randomSeed)
+
+    val (distanceMeasure, hashFunctions) = measureName.toLowerCase match {
+
+      case "hamming" => {
+        val hashFunctions = (1 to numTables).map(i =>
+          BitSamplingFunction.generate(
+            origDimension,
+            signatureLength,
+            random
+          ))
+
+        (HammingDistance, hashFunctions)
+      }
+
+      case "cosine" => {
+        val functions = (1 to numTables).map(i =>
+          SignRandomProjectionFunction.generate(
+            origDimension,
+            signatureLength,
+            random
+          ))
+
+        (CosineDistance, functions)
+      }
+
+      case "euclidean" => {
+        require(bucketWidth > 0.0, "Bucket width must be greater than zero.")
+
+        val functions = (1 to numTables).map(i =>
+          ScalarRandomProjectionFunction.generateL2(
+            origDimension,
+            signatureLength,
+            bucketWidth,
+            random
+          ))
+
+        (EuclideanDistance, functions)
+      }
+
+      case "manhattan" => {
+        require(bucketWidth > 0.0, "Bucket width must be greater than zero.")
+
+        val functions = (1 to numTables).map(i =>
+          ScalarRandomProjectionFunction.generateL1(
+            origDimension,
+            signatureLength,
+            bucketWidth,
+            random
+          ))
+
+        (ManhattanDistance, functions)
+      }
+
+      case other: Any =>
+        throw new IllegalArgumentException(
+          s"Only hamming, cosine, euclidean, and manhattan distances are supported but got $other."
+        )
+
+    }
+
+    SimpleANNModel.train(
+      points,
+      hashFunctions,
+      distanceMeasure
+    )
+  }
+
 }

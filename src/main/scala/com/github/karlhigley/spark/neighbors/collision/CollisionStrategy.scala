@@ -14,4 +14,5 @@ import org.apache.spark.rdd.RDD
 private[neighbors] abstract class CollisionStrategy {
 
   def apply(hashTables: RDD[_ <: HashTableEntry[_]]): RDD[(Product, Point)]
+
 }

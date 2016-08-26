@@ -2,8 +2,8 @@ package com.github.karlhigley.spark.neighbors
 
 import com.github.karlhigley.spark.neighbors.collision.CollisionStrategy
 import com.github.karlhigley.spark.neighbors.linalg.DistanceMeasure
-import com.github.karlhigley.spark.neighbors.lsh.{ HashTableEntry, LSHFunction }
-import org.apache.spark.mllib.linalg.{ Vector => MLLibVector }
+import com.github.karlhigley.spark.neighbors.lsh.{HashTableEntry, LSHFunction}
+import org.apache.spark.mllib.linalg.{Vector => MLLibVector}
 import org.apache.spark.mllib.rdd.MLPairRDDFunctions._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
@@ -12,13 +12,11 @@ import org.apache.spark.storage.StorageLevel
  * Model containing hash tables produced by computing signatures
  * for each supplied vector.
  */
-class ANNModel(
-  val hashTables: RDD[_ <: HashTableEntry[_]],
-    val hashFunctions: Array[_ <: LSHFunction[_]],
-    val collisionStrategy: CollisionStrategy,
-    val measure: DistanceMeasure,
-    val numPoints: Int
-) extends Serializable {
+class ANNModel(val hashTables: RDD[_ <: HashTableEntry[_]],
+               val hashFunctions: Array[_ <: LSHFunction[_]],
+               val collisionStrategy: CollisionStrategy,
+               val measure: DistanceMeasure,
+               val numPoints: Int) extends Serializable {
 
   import ANNModel._
 
@@ -124,13 +122,11 @@ object ANNModel {
   /**
    * Train a model by computing signatures for the supplied points
    */
-  def train(
-    points: RDD[(Long, MLLibVector)],
-    hashFunctions: Array[_ <: LSHFunction[_]],
-    collisionStrategy: CollisionStrategy,
-    measure: DistanceMeasure,
-    persistenceLevel: StorageLevel
-  ): ANNModel = {
+  def train(points: RDD[(Long, MLLibVector)],
+            hashFunctions: Array[_ <: LSHFunction[_]],
+            collisionStrategy: CollisionStrategy,
+            measure: DistanceMeasure,
+            persistenceLevel: StorageLevel): ANNModel = {
 
     val hashTables: RDD[_ <: HashTableEntry[_]] = generateHashTables(points, hashFunctions)
 
@@ -141,21 +137,16 @@ object ANNModel {
       hashFunctions,
       collisionStrategy,
       measure,
-      points.count().toInt
-    )
+      points.count().toInt)
 
   }
 
-  def generateHashTables(
-    points: RDD[(Long, MLLibVector)],
-    hashFunctions: Array[_ <: LSHFunction[_]]
-  ): RDD[_ <: HashTableEntry[_]] =
+  def generateHashTables(points: RDD[(Long, MLLibVector)],
+                         hashFunctions: Array[_ <: LSHFunction[_]]): RDD[_ <: HashTableEntry[_]] =
     points
-      .flatMap {
-        case (id, vector) =>
-          hashFunctions
-            .zipWithIndex
-            .map { case (hashFunc, table) => hashFunc.hashTableEntry(id, table, vector) }
-      }
+      .flatMap{ case (id, vector) =>
+        hashFunctions
+          .zipWithIndex
+          .map{ case (hashFunc, table) => hashFunc.hashTableEntry(id, table, vector) }}
 
 }
