@@ -10,9 +10,7 @@ import org.apache.spark.mllib.linalg.{ DenseVector, Vector }
  * A simple random projection based on Spark's existing
  * random generation and multiplication of dense matrices.
  */
-private[neighbors] class RandomProjection(
-    private[this] val matrix: DenseMatrix
-) extends Serializable {
+private[neighbors] class RandomProjection(private[this] val matrix: DenseMatrix) extends Serializable {
 
   /**
    * Apply the projection to supplied vector
@@ -20,6 +18,7 @@ private[neighbors] class RandomProjection(
   def project(vector: Vector): DenseVector = {
     matrix.multiply(vector)
   }
+
 }
 
 private[neighbors] object RandomProjection {
@@ -46,4 +45,5 @@ private[neighbors] object RandomProjection {
     val localMatrix = randc(projectedDim, originalDim)
     new RandomProjection(localMatrix)
   }
+
 }

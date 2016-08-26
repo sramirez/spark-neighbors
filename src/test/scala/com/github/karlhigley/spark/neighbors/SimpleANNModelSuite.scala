@@ -1,23 +1,22 @@
 package com.github.karlhigley.spark.neighbors
 
-import org.scalatest.FunSuite
-
-import org.apache.spark.rdd.RDD
 import org.apache.spark.mllib.linalg.{ Vector => MLLibVector }
+import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfter, FunSuite }
 
-import com.github.karlhigley.spark.neighbors.lsh.HashTableEntry
+/**
+ * @author Thomas Moerman
+ */
+class SimpleANNModelSuite extends FunSuite with BeforeAndAfterAll {
 
-class ANNModelSuite extends FunSuite with TestSparkContext {
   val numPoints = 1000
   val dimensions = 100
   val density = 0.5
 
-  var points: RDD[(Long, MLLibVector)] = _
+  var points: Iterable[(Long, MLLibVector)] = _
 
   override def beforeAll() {
-    super.beforeAll()
     val localPoints = TestHelpers.generateRandomPoints(numPoints, dimensions, density)
-    points = sc.parallelize(localPoints).zipWithIndex.map(_.swap)
+    points = localPoints.zipWithIndex.map { case (v, idx) => (idx.toLong, v) }
   }
 
   test("average selectivity is between zero and one") {

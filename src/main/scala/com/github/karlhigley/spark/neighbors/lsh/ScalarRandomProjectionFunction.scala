@@ -2,12 +2,10 @@ package com.github.karlhigley.spark.neighbors.lsh
 
 import java.util.Random
 
-import org.apache.spark.mllib.linalg.{ SparseVector, Vectors }
-
 import com.github.karlhigley.spark.neighbors.linalg.RandomProjection
+import org.apache.spark.mllib.linalg.{ Vector => MLLibVector }
 
 /**
- *
  * References:
  *  - Datar, Immorlica, Indyk, and Mirrokni. "Locality-sensitive hashing scheme
  *      based on p-stable distributions." SCG, 2004.
@@ -16,15 +14,16 @@ import com.github.karlhigley.spark.neighbors.linalg.RandomProjection
  *          Stable distributions (Wikipedia)]]
  */
 private[neighbors] class ScalarRandomProjectionFunction(
-    private[this] val projection: RandomProjection,
-    private[this] val b: Array[Double],
-    val bucketWidth: Double
-) extends LSHFunction[IntSignature] with Serializable {
+  private[this] val projection: RandomProjection,
+  private[this] val b: Array[Double],
+  val bucketWidth: Double
+)
+    extends LSHFunction[IntSignature] with Serializable {
 
   /**
    * Compute the hash signature of the supplied vector
    */
-  def signature(vector: SparseVector): IntSignature = {
+  def signature(vector: MLLibVector): IntSignature = {
     val ax = projection.project(vector)
     val sig = new Array[Int](ax.size)
 
@@ -38,12 +37,14 @@ private[neighbors] class ScalarRandomProjectionFunction(
   /**
    * Build a hash table entry for the supplied vector
    */
-  def hashTableEntry(id: Long, table: Int, v: SparseVector): IntHashTableEntry = {
+  def hashTableEntry(id: Long, table: Int, v: MLLibVector): IntHashTableEntry = {
     IntHashTableEntry(id, table, signature(v), v)
   }
+
 }
 
 private[neighbors] object ScalarRandomProjectionFunction {
+
   /**
    * Build a random hash function for Manhattan distance
    * given the vector dimension, signature length, and bucket width.
@@ -59,7 +60,9 @@ private[neighbors] object ScalarRandomProjectionFunction {
     bucketWidth: Double,
     random: Random = new Random
   ): ScalarRandomProjectionFunction = {
+
     val generator = RandomProjection.generateCauchy _
+
     generate(originalDim, signatureLength, bucketWidth, generator, random)
   }
 
@@ -78,7 +81,9 @@ private[neighbors] object ScalarRandomProjectionFunction {
     bucketWidth: Double,
     random: Random = new Random
   ): ScalarRandomProjectionFunction = {
+
     val generator = RandomProjection.generateGaussian _
+
     generate(originalDim, signatureLength, bucketWidth, generator, random)
   }
 
@@ -93,8 +98,11 @@ private[neighbors] object ScalarRandomProjectionFunction {
     generator: (Int, Int, Random) => RandomProjection,
     random: Random = new Random
   ): ScalarRandomProjectionFunction = {
+
     val projection = generator(originalDim, signatureLength, random)
+
     val offsets = generateOffsets(signatureLength, bucketWidth, random)
+
     new ScalarRandomProjectionFunction(projection, offsets, bucketWidth)
   }
 
@@ -111,4 +119,5 @@ private[neighbors] object ScalarRandomProjectionFunction {
     }
     offsets
   }
+
 }

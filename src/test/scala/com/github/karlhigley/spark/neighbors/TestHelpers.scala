@@ -2,12 +2,13 @@ package com.github.karlhigley.spark.neighbors
 
 import scala.util.Random
 
-import org.apache.spark.mllib.linalg.SparseVector
+import org.apache.spark.mllib.linalg.{ Vector => MLLibVector, SparseVector }
 
 object TestHelpers {
+
   def generateRandomPoints(quantity: Int, dimensions: Int, density: Double) = {
     val numElements = math.floor(dimensions * density).toInt
-    val points = new Array[SparseVector](quantity)
+    val points = new Array[MLLibVector](quantity)
     var i = 0
     while (i < quantity) {
       val indices = generateIndices(numElements, dimensions)
@@ -40,4 +41,5 @@ object TestHelpers {
     }
     values
   }
+
 }

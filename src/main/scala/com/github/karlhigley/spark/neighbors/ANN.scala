@@ -1,25 +1,22 @@
 package com.github.karlhigley.spark.neighbors
 
 import java.util.{ Random => JavaRandom }
-import scala.util.Random
 
+import com.github.karlhigley.spark.neighbors.ANNModel.Point
+import com.github.karlhigley.spark.neighbors.collision.{ BandingCollisionStrategy, SimpleCollisionStrategy }
+import com.github.karlhigley.spark.neighbors.linalg._
+import com.github.karlhigley.spark.neighbors.lsh._
+import org.apache.spark.mllib.linalg.{ Vector => MLLibVector }
 import org.apache.spark.rdd.RDD
-import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.storage.StorageLevel
+import org.apache.spark.storage.StorageLevel.MEMORY_AND_DISK
 
-import com.github.karlhigley.spark.neighbors.collision.{ BandingCollisionStrategy, CollisionStrategy, SimpleCollisionStrategy }
-import com.github.karlhigley.spark.neighbors.linalg.{ CosineDistance, DistanceMeasure, EuclideanDistance, ManhattanDistance, HammingDistance, JaccardDistance }
-import com.github.karlhigley.spark.neighbors.lsh.LSHFunction
-import com.github.karlhigley.spark.neighbors.lsh.BitSamplingFunction
-import com.github.karlhigley.spark.neighbors.lsh.MinhashFunction
-import com.github.karlhigley.spark.neighbors.lsh.ScalarRandomProjectionFunction
-import com.github.karlhigley.spark.neighbors.lsh.SignRandomProjectionFunction
+import scala.util.Random
 
 /**
  * Approximate Nearest Neighbors (ANN) using locality-sensitive hashing (LSH)
  *
- * @see [[https://en.wikipedia.org/wiki/Nearest_neighbor_search Nearest neighbor search
- *       (Wikipedia)]]
+ * @see [[https://en.wikipedia.org/wiki/Nearest_neighbor_search Nearest neighbor search (Wikipedia)]]
  */
 class ANN private (
     private var measureName: String,
@@ -160,48 +157,60 @@ class ANN private (
    * @return ANNModel containing computed hash tables
    */
   def train(
-    points: RDD[(Long, SparseVector)],
-    persistenceLevel: StorageLevel = StorageLevel.MEMORY_AND_DISK
+    points: RDD[Point],
+    persistenceLevel: StorageLevel = MEMORY_AND_DISK
   ): ANNModel = {
-    var hashFunctions: Array[LSHFunction[_]] = Array()
-    var candidateStrategy: CollisionStrategy = new SimpleCollisionStrategy
-    var distanceMeasure: DistanceMeasure = HammingDistance
+
     val random = new JavaRandom(randomSeed)
 
-    measureName.toLowerCase match {
+    val (distanceMeasure, hashFunctions, candidateStrategy) = measureName.toLowerCase match {
+
       case "hamming" => {
-        hashFunctions = (1 to numTables).map(i =>
+        val hashFunctions = (1 to numTables).map(i =>
           BitSamplingFunction.generate(origDimension, signatureLength, random)).toArray
+
+        (HammingDistance, hashFunctions, new SimpleCollisionStrategy)
       }
+
       case "cosine" => {
-        distanceMeasure = CosineDistance
-        hashFunctions = (1 to numTables).map(i =>
-          SignRandomProjectionFunction.generate(origDimension, signatureLength, random)).toArray
+        val functions = (1 to numTables).map(i =>
+          SignRandomProjectionFunction.generate(
+            origDimension,
+            signatureLength,
+            random
+          )).toArray
+
+        (CosineDistance, functions, new SimpleCollisionStrategy)
       }
+
       case "euclidean" => {
         require(bucketWidth > 0.0, "Bucket width must be greater than zero.")
 
-        distanceMeasure = EuclideanDistance
-        hashFunctions = (1 to numTables).map(i =>
+        val functions = (1 to numTables).map(i =>
           ScalarRandomProjectionFunction.generateL2(
             origDimension,
             signatureLength,
             bucketWidth,
             random
           )).toArray
+
+        (EuclideanDistance, functions, new SimpleCollisionStrategy)
       }
+
       case "manhattan" => {
         require(bucketWidth > 0.0, "Bucket width must be greater than zero.")
 
-        distanceMeasure = ManhattanDistance
-        hashFunctions = (1 to numTables).map(i =>
+        val functions = (1 to numTables).map(i =>
           ScalarRandomProjectionFunction.generateL1(
             origDimension,
             signatureLength,
             bucketWidth,
             random
           )).toArray
+
+        (ManhattanDistance, functions, new SimpleCollisionStrategy)
       }
+
       case "jaccard" => {
         require(primeModulus > 0, "Prime modulus must be greater than zero.")
         require(numBands > 0, "Number of bands must be greater than zero.")
@@ -210,15 +219,17 @@ class ANN private (
           "Number of bands must evenly divide signature length."
         )
 
-        distanceMeasure = JaccardDistance
-        hashFunctions = (1 to numTables).map(i =>
+        val hashFunctions = (1 to numTables).map(i =>
           MinhashFunction.generate(origDimension, signatureLength, primeModulus, random)).toArray
-        candidateStrategy = new BandingCollisionStrategy(numBands)
+
+        (JaccardDistance, hashFunctions, new BandingCollisionStrategy(numBands))
       }
+
       case other: Any =>
         throw new IllegalArgumentException(
           s"Only hamming, cosine, euclidean, manhattan, and jaccard distances are supported but got $other."
         )
+
     }
 
     ANNModel.train(
@@ -229,4 +240,75 @@ class ANN private (
       persistenceLevel
     )
   }
+
+  def train(points: Iterable[Point]): SimpleANNModel = {
+
+    val random = new JavaRandom(randomSeed)
+
+    val (distanceMeasure, hashFunctions) = measureName.toLowerCase match {
+
+      case "hamming" => {
+        val hashFunctions = (1 to numTables).map(i =>
+          BitSamplingFunction.generate(
+            origDimension,
+            signatureLength,
+            random
+          ))
+
+        (HammingDistance, hashFunctions)
+      }
+
+      case "cosine" => {
+        val functions = (1 to numTables).map(i =>
+          SignRandomProjectionFunction.generate(
+            origDimension,
+            signatureLength,
+            random
+          ))
+
+        (CosineDistance, functions)
+      }
+
+      case "euclidean" => {
+        require(bucketWidth > 0.0, "Bucket width must be greater than zero.")
+
+        val functions = (1 to numTables).map(i =>
+          ScalarRandomProjectionFunction.generateL2(
+            origDimension,
+            signatureLength,
+            bucketWidth,
+            random
+          ))
+
+        (EuclideanDistance, functions)
+      }
+
+      case "manhattan" => {
+        require(bucketWidth > 0.0, "Bucket width must be greater than zero.")
+
+        val functions = (1 to numTables).map(i =>
+          ScalarRandomProjectionFunction.generateL1(
+            origDimension,
+            signatureLength,
+            bucketWidth,
+            random
+          ))
+
+        (ManhattanDistance, functions)
+      }
+
+      case other: Any =>
+        throw new IllegalArgumentException(
+          s"Only hamming, cosine, euclidean, and manhattan distances are supported but got $other."
+        )
+
+    }
+
+    SimpleANNModel.train(
+      points,
+      hashFunctions,
+      distanceMeasure
+    )
+  }
+
 }

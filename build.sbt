@@ -4,11 +4,7 @@ organization := "com.github.karlhigley"
 
 description := "Spark-based approximate nearest neighbor search using locality-sensitive hashing"
 
-version := "0.2.2"
-
 scalaVersion := "2.10.5"
-
-spName := "karlhigley/spark-neighbors"
 
 sparkVersion := "1.6.0"
 
@@ -37,36 +33,6 @@ parallelExecution in Test := false
 
 publishArtifact in Test := false
 
-publishMavenStyle := true
-
-spIncludeMaven := true
-
 licenses += ("MIT", url("http://opensource.org/licenses/MIT"))
 
-credentials += Credentials(Path.userHome / ".ivy2" / ".spark-package-credentials")
-
-publishTo := {
-  val nexus = "https://oss.sonatype.org/"
-  if (version.value.endsWith("SNAPSHOT"))
-    Some("snapshots" at nexus + "content/repositories/snapshots")
-  else
-    Some("releases"  at nexus + "service/local/staging/deploy/maven2")
-}
-
-pomExtra := (
-  <url>https://github.com/karlhigley/spark-neighbors</url>
-  <scm>
-    <url>git@github.com:karlhigley/spark-neighbors.git</url>
-    <connection>scm:git:git@github.com:karlhigley/spark-neighbors.git</connection>
-  </scm>
-  <developers>
-    <developer>
-      <id>karlhigley</id>
-      <name>Karl Higley</name>
-      <url>https://github.com/karlhigley</url>
-    </developer>
-  </developers>)
-
-pomIncludeRepository := { _ => false }
-
-useGpg := true
+publishTo := Some(Resolver.file("file",  new File(Path.userHome.absolutePath + "/.m2/repository")))

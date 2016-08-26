@@ -4,7 +4,7 @@ import java.util.Random
 import scala.collection.immutable.BitSet
 import scala.collection.mutable.ArrayBuffer
 
-import org.apache.spark.mllib.linalg.{ SparseVector, Vectors }
+import org.apache.spark.mllib.linalg.{ SparseVector, Vectors, Vector => MLLibVector }
 
 import com.github.karlhigley.spark.neighbors.linalg.RandomProjection
 
@@ -17,14 +17,15 @@ import com.github.karlhigley.spark.neighbors.linalg.RandomProjection
  *          Random projection (Wikipedia)]]
  */
 private[neighbors] class SignRandomProjectionFunction(
-    private[this] val projection: RandomProjection,
-    signatureLength: Int
-) extends LSHFunction[BitSignature] with Serializable {
+  private[this] val projection: RandomProjection,
+  signatureLength: Int
+)
+    extends LSHFunction[BitSignature] with Serializable {
 
   /**
    * Compute the hash signature of the supplied vector
    */
-  def signature(vector: SparseVector): BitSignature = {
+  def signature(vector: MLLibVector): BitSignature = {
     val projected = projection.project(vector)
     val bits = new ArrayBuffer[Int]
 
@@ -37,12 +38,14 @@ private[neighbors] class SignRandomProjectionFunction(
   /**
    * Build a hash table entry for the supplied vector
    */
-  def hashTableEntry(id: Long, table: Int, v: SparseVector): BitHashTableEntry = {
+  def hashTableEntry(id: Long, table: Int, v: MLLibVector): BitHashTableEntry = {
     BitHashTableEntry(id, table, signature(v), v)
   }
+
 }
 
 private[neighbors] object SignRandomProjectionFunction {
+
   /**
    * Build a random hash function, given the vector dimension
    * and signature length
@@ -58,6 +61,8 @@ private[neighbors] object SignRandomProjectionFunction {
   ): SignRandomProjectionFunction = {
 
     val projection = RandomProjection.generateGaussian(originalDim, signatureLength, random)
+
     new SignRandomProjectionFunction(projection, signatureLength)
   }
+
 }
