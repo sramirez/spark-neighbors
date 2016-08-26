@@ -15,16 +15,12 @@ private[neighbors] sealed trait Signature[+T] extends Any {
 /**
  * Signature type for sign-random-projection LSH
  */
-private[neighbors] final case class BitSignature(
-  elements: BitSet
-) extends AnyVal with Signature[BitSet]
+private[neighbors] final case class BitSignature(elements: BitSet) extends AnyVal with Signature[BitSet]
 
 /**
  * Signature type for scalar-random-projection LSH
  */
-private[neighbors] final case class IntSignature(
-  elements: Array[Int]
-) extends AnyVal with Signature[Array[Int]]
+private[neighbors] final case class IntSignature(elements: Array[Int]) extends AnyVal with Signature[Array[Int]]
 
 /**
  * A hash table entry containing an id, a signature, and
@@ -41,7 +37,7 @@ private[neighbors] sealed abstract class HashTableEntry[+S <: Signature[_]] {
 }
 
 private[neighbors] final case class BitHashTableEntry(
-  id: Long,
+    id: Long,
     table: Int,
     signature: BitSignature,
     point: MLLibVector
@@ -54,7 +50,7 @@ private[neighbors] final case class BitHashTableEntry(
 }
 
 private[neighbors] final case class IntHashTableEntry(
-  id: Long,
+    id: Long,
     table: Int,
     signature: IntSignature,
     point: MLLibVector

@@ -18,16 +18,13 @@ private[neighbors] class SimpleCollisionStrategy extends CollisionStrategy with 
    * Convert hash tables into an RDD that is "collidable" using groupByKey.
    * The new keys contain the hash table id, and a hashed version of the signature.
    */
-  def apply(hashTables: RDD[_ <: HashTableEntry[_]]): RDD[(Product, Point)] = {
-    val entries = hashTables.map(entry => {
-      // Arrays are mutable and can't be used in RDD keys
-      // Use a hash value (i.e. an int) as a substitute
-      val key = (entry.table, MurmurHash3.arrayHash(entry.sigElements)).asInstanceOf[Product]
+  def apply(hashTables: RDD[_ <: HashTableEntry[_]]): RDD[(Product, Point)] =
+    hashTables
+      .map(entry => {
+        // Arrays are mutable and can't be used in RDD keys. Use a hash value (i.e. an int) as a substitute
+        val key = (entry.table, MurmurHash3.arrayHash(entry.sigElements)).asInstanceOf[Product]
 
-      (key, (entry.id, entry.point))
-    })
-
-    entries
-  }
+        (key, (entry.id, entry.point))
+      })
 
 }
