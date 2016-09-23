@@ -50,6 +50,16 @@ class DistanceMeasureSuite extends FunSuite with TestSparkContext {
     assert(ManhattanDistance.compute(v5, v6) === 4.0)
   }
 
+  test("Fractional distance") {
+    assert(FractionalDistance.compute(v1, v1) === 0.0)
+    assert(FractionalDistance.compute(v1, v2) === 64.0)
+    assert(FractionalDistance.compute(v2, v3) === 16.0)
+
+    assert(FractionalDistance.compute(v4, v4) === 0.0)
+    assert(FractionalDistance.compute(v4, v5) === 64.0)
+    assert(FractionalDistance.compute(v5, v6) === 16.0)
+  }
+
   test("Hamming distance") {
     assert(HammingDistance.compute(v1, v1) === 0.0)
     assert(HammingDistance.compute(v1, v2) === 8.0)

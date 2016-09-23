@@ -37,31 +37,39 @@ private[neighbors] final object CosineDistance extends DistanceMeasure {
   }
 }
 
-private[neighbors] final object EuclideanDistance extends DistanceMeasure {
 
-  /**
-   * Compute Euclidean distance between vectors using
-   * MLlib's public vector distance functionality
-   */
+
+final object EuclideanDistance extends DistanceMeasure {
+
   def compute(v1: MLLibVector, v2: MLLibVector): Double = {
     val b1 = LinalgShim.toBreeze(v1)
     val b2 = LinalgShim.toBreeze(v2)
     norm(b1 - b2, 2.0)
   }
+
 }
 
-private[neighbors] final object ManhattanDistance extends DistanceMeasure {
+final object ManhattanDistance extends DistanceMeasure {
 
-  /**
-   * Compute Manhattan distance between vectors using
-   * Breeze vector operations
-   */
   def compute(v1: MLLibVector, v2: MLLibVector): Double = {
     val b1 = LinalgShim.toBreeze(v1)
     val b2 = LinalgShim.toBreeze(v2)
     norm(b1 - b2, 1.0)
   }
+
 }
+
+final object FractionalDistance extends DistanceMeasure {
+
+  def compute(v1: MLLibVector, v2: MLLibVector): Double = {
+    val b1 = LinalgShim.toBreeze(v1)
+    val b2 = LinalgShim.toBreeze(v2)
+    norm(b1 - b2, 0.5)
+  }
+
+}
+
+
 
 private[neighbors] final object HammingDistance extends DistanceMeasure {
 
