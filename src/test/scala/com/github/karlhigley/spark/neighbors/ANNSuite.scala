@@ -15,7 +15,7 @@ class ANNSuite extends FunSuite with TestSparkContext {
   val density = 0.5
 
   var sparsePoints: RDD[(Long, MLLibVector)] = _
-  var densePoints: RDD[(Long, MLLibVector)] = _
+  var densePoints:  RDD[(Long, MLLibVector)] = _
 
   override def beforeAll() {
     super.beforeAll()
@@ -80,8 +80,11 @@ class ANNSuite extends FunSuite with TestSparkContext {
     val model = ann.train(densePoints)
     val neighbors = model.neighbors(10)
 
-    val localHashTables = model.hashTables.collect()
-    val localNeighbors = neighbors.collect()
+    val localHashTables = model.hashTables.collect
+    val localNeighbors  = neighbors.collect
+    val nrNeighbors     = localNeighbors.length
+
+    println(s"Euclidean nr neighbors: $nrNeighbors")
 
     runAssertions(localHashTables, localNeighbors)
   }
@@ -96,8 +99,30 @@ class ANNSuite extends FunSuite with TestSparkContext {
     val model = ann.train(sparsePoints)
     val neighbors = model.neighbors(10)
 
-    val localHashTables = model.hashTables.collect()
-    val localNeighbors = neighbors.collect()
+    val localHashTables = model.hashTables.collect
+    val localNeighbors  = neighbors.collect
+    val nrNeighbors     = localNeighbors.length
+
+    println(s"Manhattan nr neighbors: $nrNeighbors")
+
+    runAssertions(localHashTables, localNeighbors)
+  }
+
+  test("compute fractional nearest neighbors as a batch") {
+    val ann =
+      new ANN(dimensions, "fractional")
+        .setTables(10)
+        .setSignatureLength(4)
+        .setBucketWidth(250)
+
+    val model = ann.train(sparsePoints)
+    val neighbors = model.neighbors(10)
+
+    val localHashTables = model.hashTables.collect
+    val localNeighbors  = neighbors.collect
+    val nrNeighbors     = localNeighbors.length
+
+    println(s"Manhattan nr neighbors: $nrNeighbors")
 
     runAssertions(localHashTables, localNeighbors)
   }
@@ -161,18 +186,17 @@ class ANNSuite extends FunSuite with TestSparkContext {
 }
 
 object ANNSuite {
-  def runAssertions(
-    hashTables: Array[_ <: HashTableEntry[_]],
-    neighbors: Array[(Long, Array[(Long, Double)])]
-  ) = {
+
+  def runAssertions(hashTables: Array[_ <: HashTableEntry[_]],
+                    neighbors: Array[(Long, Array[(Long, Double)])]): Unit = {
 
     // At least some neighbors are found
     assert(neighbors.size > 0)
 
-    neighbors.map {
+    neighbors.foreach {
       case (id1, distances) => {
         var maxDist = 0.0
-        distances.map {
+        distances.foreach {
           case (id2, distance) => {
             // No neighbor pair contains the same ID twice
             assert(id1 != id2)

@@ -13,7 +13,7 @@ import org.apache.spark.storage.StorageLevel
  * for each supplied vector.
  */
 class ANNModel(val hashTables: RDD[_ <: HashTableEntry[_]],
-               val hashFunctions: Array[_ <: LSHFunction[_]],
+               val hashFunctions: Iterable[_ <: LSHFunction[_]],
                val collisionStrategy: CollisionStrategy,
                val measure: DistanceMeasure,
                val numPoints: Int) extends Serializable {
@@ -123,7 +123,7 @@ object ANNModel {
    * Train a model by computing signatures for the supplied points
    */
   def train(points: RDD[(Long, MLLibVector)],
-            hashFunctions: Array[_ <: LSHFunction[_]],
+            hashFunctions: Iterable[_ <: LSHFunction[_]],
             collisionStrategy: CollisionStrategy,
             measure: DistanceMeasure,
             persistenceLevel: StorageLevel): ANNModel = {
@@ -142,11 +142,11 @@ object ANNModel {
   }
 
   def generateHashTables(points: RDD[(Long, MLLibVector)],
-                         hashFunctions: Array[_ <: LSHFunction[_]]): RDD[_ <: HashTableEntry[_]] =
+                         hashFunctions: Iterable[_ <: LSHFunction[_]]): RDD[_ <: HashTableEntry[_]] =
     points
       .flatMap{ case (id, vector) =>
         hashFunctions
           .zipWithIndex
-          .map{ case (hashFunc, table) => hashFunc.hashTableEntry(id, table, vector) }}
+          .map{ case (hashFunc: LSHFunction[_], table) => hashFunc.hashTableEntry(id, table, vector) }}
 
 }

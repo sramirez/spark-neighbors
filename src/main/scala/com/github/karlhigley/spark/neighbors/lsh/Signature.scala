@@ -28,36 +28,30 @@ private[neighbors] final case class IntSignature(elements: Array[Int]) extends A
  * in a single RDD.
  */
 private[neighbors] sealed abstract class HashTableEntry[+S <: Signature[_]] {
+
   val id: Long
   val table: Int
   val signature: S
   val point: MLLibVector
 
   def sigElements: Array[Int]
-}
-
-private[neighbors] final case class BitHashTableEntry(
-    id: Long,
-    table: Int,
-    signature: BitSignature,
-    point: MLLibVector
-) extends HashTableEntry[BitSignature] {
-
-  def sigElements: Array[Int] = {
-    signature.elements.toArray
-  }
 
 }
 
-private[neighbors] final case class IntHashTableEntry(
-    id: Long,
-    table: Int,
-    signature: IntSignature,
-    point: MLLibVector
-) extends HashTableEntry[IntSignature] {
+final case class BitHashTableEntry(id: Long,
+                                   table: Int,
+                                   signature: BitSignature,
+                                   point: MLLibVector) extends HashTableEntry[BitSignature] {
 
-  def sigElements: Array[Int] = {
-    signature.elements
-  }
+  def sigElements: Array[Int] = signature.elements.toArray
+
+}
+
+final case class IntHashTableEntry(id: Long,
+                                   table: Int,
+                                   signature: IntSignature,
+                                   point: MLLibVector) extends HashTableEntry[IntSignature] {
+
+  def sigElements: Array[Int] = signature.elements
 
 }
