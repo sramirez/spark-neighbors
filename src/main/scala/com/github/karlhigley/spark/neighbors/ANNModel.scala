@@ -15,7 +15,7 @@ import org.apache.spark.storage.StorageLevel
 class ANNModel(val hashTables: RDD[_ <: HashTableEntry[_]],
                val hashFunctions: Iterable[_ <: LSHFunction[_]],
                val collisionStrategy: CollisionStrategy,
-               val measure: DistanceMeasure,
+               val distance: DistanceMeasure,
                val numPoints: Int) extends Serializable {
 
   import ANNModel._
@@ -46,7 +46,10 @@ class ANNModel(val hashTables: RDD[_ <: HashTableEntry[_]],
     val queryHashTables = ANNModel.generateHashTables(queryPoints, hashFunctions)
     val queryEntries = collisionStrategy.apply(queryHashTables)
 
-    val candidateGroups = queryEntries.cogroup(modelEntries).values
+    val candidateGroups =
+      queryEntries.cogroup(modelEntries)
+        .values
+
     val neighbors = computeBipartiteDistances(candidateGroups)
 
     neighbors.topByKey(quantity)(ANNModel.ordering)
@@ -72,8 +75,7 @@ class ANNModel(val hashTables: RDD[_ <: HashTableEntry[_]],
       .map(_.toDouble / numPoints).reduce(_ + _) / numPoints
 
   /**
-   * Compute the actual distance between candidate pairs
-   * using the supplied distance measure.
+   * Compute the actual distance between candidate pairs using the supplied distance measure.
    */
   private def computeDistances(candidates: RDD[CandidateGroup]): RDD[(Long, (Long, Double))] =
     candidates
@@ -83,12 +85,12 @@ class ANNModel(val hashTables: RDD[_ <: HashTableEntry[_]],
             (id1, vector1) <- group.iterator;
             (id2, vector2) <- group.iterator;
             if id1 < id2
-          ) yield ((id1, id2), measure.compute(vector1, vector2))
+          ) yield ((id1, id2), distance(vector1, vector2))
         }
       }
       .reduceByKey((a, b) => a)
       .flatMap {
-        case ((id1, id2), dist) => Array((id1, (id2, dist)), (id2, (id1, dist)))
+        case ((id1, id2), dist) => Seq((id1, (id2, dist)), (id2, (id1, dist)))
       }
 
   /**
@@ -102,7 +104,7 @@ class ANNModel(val hashTables: RDD[_ <: HashTableEntry[_]],
           for (
             (id1, vector1) <- groupA.iterator;
             (id2, vector2) <- groupB.iterator
-          ) yield ((id1, id2), measure.compute(vector1, vector2))
+          ) yield ((id1, id2), distance(vector1, vector2))
         }
       }
       .reduceByKey((a, b) => a)
@@ -137,7 +139,7 @@ object ANNModel {
       hashFunctions,
       collisionStrategy,
       measure,
-      points.count().toInt)
+      points.count.toInt)
 
   }
 
@@ -147,6 +149,6 @@ object ANNModel {
       .flatMap{ case (id, vector) =>
         hashFunctions
           .zipWithIndex
-          .map{ case (hashFunc: LSHFunction[_], table) => hashFunc.hashTableEntry(id, table, vector) }}
+          .map{ case (hashFunc: LSHFunction[_], table: Int) => hashFunc.hashTableEntry(id, table, vector) }}
 
 }

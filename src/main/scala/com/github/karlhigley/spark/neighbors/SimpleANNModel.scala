@@ -15,7 +15,7 @@ import scala.util.hashing.MurmurHash3
  */
 class SimpleANNModel(val hashTables: Iterable[_ <: HashTableEntry[_]],
                      val hashFunctions: Iterable[_ <: LSHFunction[_]],
-                     val distanceMeasure: DistanceMeasure,
+                     val distance: DistanceMeasure,
                      val numPoints: Int) extends Serializable {
 
   import SimpleANNModel._
@@ -85,7 +85,7 @@ class SimpleANNModel(val hashTables: Iterable[_ <: HashTableEntry[_]],
             (id1, vector1) <- group.iterator
             (id2, vector2) <- group.iterator
             if id1 < id2
-          } yield ((id1, id2), distanceMeasure.compute(vector1, vector2))
+          } yield ((id1, id2), distance(vector1, vector2))
       }
       .foldLeft(Map[(Long, Long), Double]()) {
         case (acc, (ids, distance)) =>
@@ -109,7 +109,7 @@ class SimpleANNModel(val hashTables: Iterable[_ <: HashTableEntry[_]],
           for {
             (id1, vector1) <- groupA.iterator
             (id2, vector2) <- groupB.iterator
-          } yield ((id1, id2), distanceMeasure.compute(vector1, vector2))
+          } yield ((id1, id2), distance(vector1, vector2))
       }
       .foldLeft(Map[(Long, Long), Double]()) {
         case (acc, (ids, distance)) =>

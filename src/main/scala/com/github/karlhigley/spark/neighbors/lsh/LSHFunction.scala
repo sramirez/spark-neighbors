@@ -5,7 +5,7 @@ import org.apache.spark.mllib.linalg.{ Vector => MLLibVector, SparseVector }
 /**
  * Abstract base class for locality-sensitive hash functions.
  */
-private[neighbors] abstract class LSHFunction[+T <: Signature[_]] {
+abstract class LSHFunction[+T <: Signature[_]] {
 
   /**
    * Compute the hash signature of the supplied vector

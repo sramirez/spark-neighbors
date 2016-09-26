@@ -12,7 +12,7 @@ import com.github.karlhigley.spark.neighbors.ANNModel.Point
  *
  * (See Mining Massive Datasets, Ch. 3)
  */
-private[neighbors] class SimpleCollisionStrategy extends CollisionStrategy with Serializable {
+class SimpleCollisionStrategy extends CollisionStrategy with Serializable {
 
   /**
    * Convert hash tables into an RDD that is "collidable" using groupByKey.

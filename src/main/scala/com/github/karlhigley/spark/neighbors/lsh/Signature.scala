@@ -8,26 +8,26 @@ import org.apache.spark.mllib.linalg.{ Vector => MLLibVector }
  * This wrapper class allows ANNModel to ignore the
  * type of the hash signatures in its hash tables.
  */
-private[neighbors] sealed trait Signature[+T] extends Any {
+sealed trait Signature[+T] extends Any {
   val elements: T
 }
 
 /**
  * Signature type for sign-random-projection LSH
  */
-private[neighbors] final case class BitSignature(elements: BitSet) extends AnyVal with Signature[BitSet]
+final case class BitSignature(elements: BitSet) extends AnyVal with Signature[BitSet]
 
 /**
  * Signature type for scalar-random-projection LSH
  */
-private[neighbors] final case class IntSignature(elements: Array[Int]) extends AnyVal with Signature[Array[Int]]
+final case class IntSignature(elements: Array[Int]) extends AnyVal with Signature[Array[Int]]
 
 /**
  * A hash table entry containing an id, a signature, and
  * a table number, so that all hash tables can be stored
  * in a single RDD.
  */
-private[neighbors] sealed abstract class HashTableEntry[+S <: Signature[_]] {
+sealed abstract class HashTableEntry[+S <: Signature[_]] {
 
   val id: Long
   val table: Int

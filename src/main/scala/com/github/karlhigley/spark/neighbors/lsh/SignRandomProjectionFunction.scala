@@ -26,7 +26,7 @@ private[neighbors] class SignRandomProjectionFunction(
    * Compute the hash signature of the supplied vector
    */
   def signature(vector: MLLibVector): BitSignature = {
-    val projected = projection.project(vector)
+    val projected = projection(vector)
     val bits = new ArrayBuffer[Int]
 
     projected.foreachActive((i, v) => {

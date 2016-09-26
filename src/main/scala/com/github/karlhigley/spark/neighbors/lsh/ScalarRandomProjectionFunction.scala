@@ -5,6 +5,8 @@ import java.util.Random
 import com.github.karlhigley.spark.neighbors.linalg.RandomProjection
 import org.apache.spark.mllib.linalg.{ Vector => MLLibVector }
 
+import scala.math.floor
+
 /**
  * References:
  *  - Datar, Immorlica, Indyk, and Mirrokni. "Locality-sensitive hashing scheme
@@ -13,22 +15,21 @@ import org.apache.spark.mllib.linalg.{ Vector => MLLibVector }
  * @see [[https://en.wikipedia.org/wiki/Locality-sensitive_hashing#Stable_distributions
  *          Stable distributions (Wikipedia)]]
  */
-private[neighbors] class ScalarRandomProjectionFunction(
-  private[this] val projection: RandomProjection,
-  private[this] val b: Array[Double],
-  val bucketWidth: Double
-)
-    extends LSHFunction[IntSignature] with Serializable {
+class ScalarRandomProjectionFunction(val projection: RandomProjection,
+                                     val b: Array[Double],
+                                     val bucketWidth: Double) extends LSHFunction[IntSignature] with Serializable {
 
   /**
    * Compute the hash signature of the supplied vector
    */
   def signature(vector: MLLibVector): IntSignature = {
-    val ax = projection.project(vector)
+
+    val ax = projection(vector)
+
     val sig = new Array[Int](ax.size)
 
     ax.foreachActive((i, v) => {
-      sig(i) = math.floor((ax(i) + b(i)) / bucketWidth).toInt
+      sig(i) = floor((ax(i) + b(i)) / bucketWidth).toInt
     })
 
     new IntSignature(sig)
@@ -43,7 +44,7 @@ private[neighbors] class ScalarRandomProjectionFunction(
 
 }
 
-private[neighbors] object ScalarRandomProjectionFunction {
+object ScalarRandomProjectionFunction {
 
   /**
    * Build a random hash function for Manhattan distance
@@ -114,8 +115,7 @@ private[neighbors] object ScalarRandomProjectionFunction {
   }
 
   /**
-   * Generate a set of offsets (individually referred to as "b")
-   * to use in component hash functions
+   * Generate a set of offsets (individually referred to as "b") to use in component hash functions
    */
   private def generateOffsets(quantity: Int, width: Double, random: Random): Array[Double] = {
     val offsets = new Array[Double](quantity)

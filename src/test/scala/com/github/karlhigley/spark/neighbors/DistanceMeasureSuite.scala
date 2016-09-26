@@ -21,54 +21,55 @@ class DistanceMeasureSuite extends FunSuite with TestSparkContext {
   val v6 = new DenseVector(Array(0, 0, 1, 0, 0, 1, 0, 1, 0, 1).map(_.toDouble))
 
   test("Cosine distance") {
-    assert(CosineDistance.compute(v1, v1) === 0.0)
-    assert(CosineDistance.compute(v1, v2) === 1.0)
-    assert(CosineDistance.compute(v2, v3) === 0.5)
+    assert(CosineDistance(v1, v1) === 0.0)
+    assert(CosineDistance(v1, v2) === 1.0)
+    assert(CosineDistance(v2, v3) === 0.5)
 
-    assert(CosineDistance.compute(v4, v4) === 0.0)
-    assert(CosineDistance.compute(v4, v5) === 1.0)
-    assert(CosineDistance.compute(v5, v6) === 0.5)
+    assert(CosineDistance(v4, v4) === 0.0)
+    assert(CosineDistance(v4, v5) === 1.0)
+    assert(CosineDistance(v5, v6) === 0.5)
   }
 
   test("Euclidean distance") {
-    assert(EuclideanDistance.compute(v1, v1) === 0.0)
-    assert(EuclideanDistance.compute(v1, v2) === 2.83 +- 0.01)
-    assert(EuclideanDistance.compute(v2, v3) === 2.0)
+    assert(EuclideanDistance(v1, v1) === 0.0)
+    assert(EuclideanDistance(v1, v2) === 2.83 +- 0.01)
+    assert(EuclideanDistance(v2, v3) === 2.0)
 
-    assert(EuclideanDistance.compute(v4, v4) === 0.0)
-    assert(EuclideanDistance.compute(v4, v5) === 2.83 +- 0.01)
-    assert(EuclideanDistance.compute(v5, v6) === 2.0)
+    assert(EuclideanDistance(v4, v4) === 0.0)
+    assert(EuclideanDistance(v4, v5) === 2.83 +- 0.01)
+    assert(EuclideanDistance(v5, v6) === 2.0)
   }
 
   test("Manhattan distance") {
-    assert(ManhattanDistance.compute(v1, v1) === 0.0)
-    assert(ManhattanDistance.compute(v1, v2) === 8.0)
-    assert(ManhattanDistance.compute(v2, v3) === 4.0)
+    assert(ManhattanDistance(v1, v1) === 0.0)
+    assert(ManhattanDistance(v1, v2) === 8.0)
+    assert(ManhattanDistance(v2, v3) === 4.0)
 
-    assert(ManhattanDistance.compute(v4, v4) === 0.0)
-    assert(ManhattanDistance.compute(v4, v5) === 8.0)
-    assert(ManhattanDistance.compute(v5, v6) === 4.0)
+    assert(ManhattanDistance(v4, v4) === 0.0)
+    assert(ManhattanDistance(v4, v5) === 8.0)
+    assert(ManhattanDistance(v5, v6) === 4.0)
   }
 
   test("Fractional distance") {
-    assert(FractionalDistance.compute(v1, v1) === 0.0)
-    assert(FractionalDistance.compute(v1, v2) === 64.0)
-    assert(FractionalDistance.compute(v2, v3) === 16.0)
+    assert(FractionalDistance(v1, v1) === 0.0)
+    assert(FractionalDistance(v1, v2) === 64.0)
+    assert(FractionalDistance(v2, v3) === 16.0)
 
-    assert(FractionalDistance.compute(v4, v4) === 0.0)
-    assert(FractionalDistance.compute(v4, v5) === 64.0)
-    assert(FractionalDistance.compute(v5, v6) === 16.0)
+    assert(FractionalDistance(v4, v4) === 0.0)
+    assert(FractionalDistance(v4, v5) === 64.0)
+    assert(FractionalDistance(v5, v6) === 16.0)
   }
 
   test("Hamming distance") {
-    assert(HammingDistance.compute(v1, v1) === 0.0)
-    assert(HammingDistance.compute(v1, v2) === 8.0)
-    assert(HammingDistance.compute(v2, v3) === 4.0)
+    assert(HammingDistance(v1, v1) === 0.0)
+    assert(HammingDistance(v1, v2) === 8.0)
+    assert(HammingDistance(v2, v3) === 4.0)
   }
 
   test("Jaccard distance") {
-    assert(JaccardDistance.compute(v1, v1) === 0.0)
-    assert(JaccardDistance.compute(v1, v2) === 1.0)
-    assert(JaccardDistance.compute(v2, v3) === 0.67 +- 0.01)
+    assert(JaccardDistance(v1, v1) === 0.0)
+    assert(JaccardDistance(v1, v2) === 1.0)
+    assert(JaccardDistance(v2, v3) === 0.67 +- 0.01)
   }
+
 }

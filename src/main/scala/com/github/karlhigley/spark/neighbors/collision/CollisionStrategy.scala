@@ -11,7 +11,7 @@ import org.apache.spark.rdd.RDD
  * strategies, including multi-probe (for scalar-random-projection LSH),
  * and banding (for minhash LSH).
  */
-private[neighbors] abstract class CollisionStrategy {
+abstract class CollisionStrategy {
 
   def apply(hashTables: RDD[_ <: HashTableEntry[_]]): RDD[(Product, Point)]
 
