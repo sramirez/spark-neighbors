@@ -1,6 +1,6 @@
 package com.github.karlhigley.spark.neighbors.lsh
 
-import java.util.Random
+import scala.util.Random
 
 import org.apache.spark.mllib.linalg.{ Vector => MLLibVector, SparseVector }
 
@@ -12,8 +12,7 @@ import org.apache.spark.mllib.linalg.{ Vector => MLLibVector, SparseVector }
  *
  * @see [[https://en.wikipedia.org/wiki/MinHash MinHash (Wikipedia)]]
  */
-private[neighbors] class MinhashFunction(private[this] val permutations: Array[PermutationFunction])
-    extends LSHFunction[IntSignature] with Serializable {
+class MinhashFunction(val permutations: Array[PermutationFunction]) extends LSHFunction[IntSignature] with Serializable {
 
   /**
    * Compute minhash signature for a vector.
@@ -40,17 +39,15 @@ private[neighbors] class MinhashFunction(private[this] val permutations: Array[P
 
 }
 
-private[neighbors] object MinhashFunction {
+object MinhashFunction {
 
   /**
    * Randomly generate a new minhash function
    */
-  def generate(
-    dimensions: Int,
-    signatureLength: Int,
-    prime: Int,
-    random: Random = new Random
-  ): MinhashFunction = {
+  def generate(dimensions: Int,
+               signatureLength: Int,
+               prime: Int,
+               random: Random = new Random): MinhashFunction = {
 
     val perms = new Array[PermutationFunction](signatureLength)
     var i = 0

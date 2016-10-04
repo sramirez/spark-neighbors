@@ -1,6 +1,6 @@
 package com.github.karlhigley.spark.neighbors.lsh
 
-import java.util.Random
+import scala.util.Random
 import scala.collection.immutable.BitSet
 import scala.collection.mutable.ArrayBuffer
 
@@ -16,11 +16,10 @@ import com.github.karlhigley.spark.neighbors.linalg.RandomProjection
  * @see [[https://en.wikipedia.org/wiki/Locality-sensitive_hashing#Random_projection
  *          Random projection (Wikipedia)]]
  */
-private[neighbors] class SignRandomProjectionFunction(
-  private[this] val projection: RandomProjection,
-  signatureLength: Int
-)
-    extends LSHFunction[BitSignature] with Serializable {
+class SignRandomProjectionFunction(val projection: RandomProjection,
+                                   val signatureLength: Int)
+  extends LSHFunction[BitSignature]
+     with Serializable {
 
   /**
    * Compute the hash signature of the supplied vector
@@ -44,7 +43,7 @@ private[neighbors] class SignRandomProjectionFunction(
 
 }
 
-private[neighbors] object SignRandomProjectionFunction {
+object SignRandomProjectionFunction {
 
   /**
    * Build a random hash function, given the vector dimension
@@ -54,11 +53,9 @@ private[neighbors] object SignRandomProjectionFunction {
    * @param signatureLength the number of bits in each hash signature
    * @return randomly selected hash function from sign RP family
    */
-  def generate(
-    originalDim: Int,
-    signatureLength: Int,
-    random: Random = new Random
-  ): SignRandomProjectionFunction = {
+  def generate(originalDim: Int,
+               signatureLength: Int,
+               random: Random = new Random): SignRandomProjectionFunction = {
 
     val projection = RandomProjection.generateGaussian(originalDim, signatureLength, random)
 

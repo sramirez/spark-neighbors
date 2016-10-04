@@ -1,6 +1,6 @@
 package com.github.karlhigley.spark.neighbors.lsh
 
-import java.util.Random
+import scala.util.Random
 
 /**
  * Hash function used to permute vector rows for
@@ -13,12 +13,10 @@ import java.util.Random
  * @see [[https://en.wikipedia.org/wiki/MinHash#Min-wise_independent_permutations
  *          Min-wise independent permutations (Wikipedia)]]
  */
-private[lsh] class PermutationFunction(
-    a: Int,
-    b: Int,
-    prime: Int,
-    dimensions: Int
-) extends Serializable {
+class PermutationFunction(a: Int,
+                          b: Int,
+                          prime: Int,
+                          dimensions: Int) extends Serializable {
 
   implicit class LongWithMod(x: Long) {
     def mod(y: Long): Long = x % y + (if (x < 0) y else 0)
@@ -30,9 +28,10 @@ private[lsh] class PermutationFunction(
   def apply(x: Int): Int = {
     ((((a.longValue * x) + b) mod prime) mod dimensions).toInt
   }
+
 }
 
-private[lsh] object PermutationFunction {
+object PermutationFunction {
 
   /**
    * Randomly generate a new permutation function
@@ -48,10 +47,12 @@ private[lsh] object PermutationFunction {
    */
   private def nonZeroRandomInt(random: Random): Int = {
     val randomInt = random.nextInt()
+
     if (randomInt == 0) {
       nonZeroRandomInt(random)
     } else {
       randomInt
     }
   }
+
 }

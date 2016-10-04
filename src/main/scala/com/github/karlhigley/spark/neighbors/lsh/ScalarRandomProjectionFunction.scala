@@ -1,6 +1,6 @@
 package com.github.karlhigley.spark.neighbors.lsh
 
-import java.util.Random
+import scala.util.Random
 
 import com.github.karlhigley.spark.neighbors.linalg.RandomProjection
 import org.apache.spark.mllib.linalg.{ Vector => MLLibVector }

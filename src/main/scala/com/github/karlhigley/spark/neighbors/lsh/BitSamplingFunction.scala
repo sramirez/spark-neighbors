@@ -1,6 +1,6 @@
 package com.github.karlhigley.spark.neighbors.lsh
 
-import java.util.Random
+import scala.util.Random
 import scala.collection.immutable.BitSet
 
 import org.apache.spark.mllib.linalg.{ Vector => MLLibVector, SparseVector }
@@ -14,9 +14,7 @@ import org.apache.spark.mllib.linalg.{ Vector => MLLibVector, SparseVector }
  * @see [[https://en.wikipedia.org/wiki/Locality-sensitive_hashing#Bit_sampling_for_Hamming_distance
  *          Bit sampling for Hamming Distance (Wikipedia)]]
  */
-private[neighbors] class BitSamplingFunction(
-    private[this] val sampledBits: Array[Int]
-) extends LSHFunction[BitSignature] with Serializable {
+class BitSamplingFunction(val sampledBits: Array[Int]) extends LSHFunction[BitSignature] with Serializable {
 
   /**
    * Compute the hash signature of the supplied vector
@@ -32,9 +30,11 @@ private[neighbors] class BitSamplingFunction(
   def hashTableEntry(id: Long, table: Int, v: MLLibVector): BitHashTableEntry = {
     BitHashTableEntry(id, table, signature(v), v)
   }
+
 }
 
-private[neighbors] object BitSamplingFunction {
+object BitSamplingFunction {
+
   /**
    * Build a random hash function, given the vector dimension
    * and signature length
@@ -43,15 +43,14 @@ private[neighbors] object BitSamplingFunction {
    * @param signatureLength the number of bits in each hash signature
    * @return randomly selected hash function from bit sampling family
    */
-  def generate(
-    originalDim: Int,
-    signatureLength: Int,
-    random: Random = new Random
-  ): BitSamplingFunction = {
+  def generate(originalDim: Int,
+               signatureLength: Int,
+               random: Random = new Random): BitSamplingFunction = {
     val indices = Array.fill(signatureLength) {
       random.nextInt(originalDim)
     }
 
     new BitSamplingFunction(indices)
   }
+
 }
