@@ -32,4 +32,5 @@ object LinalgShim {
   def toBreeze(x: MLLibVector): BV[Double] = {
     x.toBreeze
   }
+
 }

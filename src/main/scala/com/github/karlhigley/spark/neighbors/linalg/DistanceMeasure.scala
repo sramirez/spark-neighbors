@@ -16,11 +16,11 @@ import org.apache.spark.mllib.linalg.LinalgShim
  * admittedly not a proper distance measure, but is computed
  * similarly nonetheless.)
  */
-private[neighbors] sealed abstract class DistanceMeasure extends Serializable {
+sealed abstract class DistanceMeasure extends Serializable {
   def apply(v1: MLLibVector, v2: MLLibVector): Double
 }
 
-private[neighbors] final object CosineDistance extends DistanceMeasure {
+final object CosineDistance extends DistanceMeasure {
 
   /**
    * Compute cosine distance between vectors
@@ -36,8 +36,6 @@ private[neighbors] final object CosineDistance extends DistanceMeasure {
     1.0 - (math.abs(dotProduct) / norms)
   }
 }
-
-
 
 final object EuclideanDistance extends DistanceMeasure {
 
@@ -69,9 +67,7 @@ final object FractionalDistance extends DistanceMeasure {
 
 }
 
-
-
-private[neighbors] final object HammingDistance extends DistanceMeasure {
+final object HammingDistance extends DistanceMeasure {
 
   /**
    * Compute Hamming distance between vectors
@@ -88,7 +84,7 @@ private[neighbors] final object HammingDistance extends DistanceMeasure {
 
 }
 
-private[neighbors] final object JaccardDistance extends DistanceMeasure {
+final object JaccardDistance extends DistanceMeasure {
 
   /**
    * Compute Jaccard distance between vectors

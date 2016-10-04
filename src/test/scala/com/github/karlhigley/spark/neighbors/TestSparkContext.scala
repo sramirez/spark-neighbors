@@ -22,4 +22,5 @@ trait TestSparkContext extends BeforeAndAfterAll { self: Suite =>
     sc = null
     super.afterAll()
   }
+
 }

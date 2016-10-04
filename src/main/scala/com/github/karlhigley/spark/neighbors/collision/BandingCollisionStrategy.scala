@@ -13,9 +13,7 @@ import com.github.karlhigley.spark.neighbors.ANNModel.Point
 /**
  * A banding collision strategy for candidate identification with Minhash
  */
-private[neighbors] class BandingCollisionStrategy(
-    bands: Int
-) extends CollisionStrategy with Serializable {
+case class BandingCollisionStrategy(bands: Int) extends CollisionStrategy with Serializable {
 
   /**
    * Convert hash tables into an RDD that is "collidable" using groupByKey.
@@ -39,4 +37,5 @@ private[neighbors] class BandingCollisionStrategy(
 
     bandEntries
   }
+
 }

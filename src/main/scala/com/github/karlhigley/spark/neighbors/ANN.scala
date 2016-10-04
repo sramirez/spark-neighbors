@@ -157,10 +157,8 @@ class ANN private (
    *                   IDs must be unique and >= 0.
    * @return ANNModel containing computed hash tables
    */
-  def train(
-    points: RDD[Point],
-    persistenceLevel: StorageLevel = MEMORY_AND_DISK
-  ): ANNModel = {
+  def train(points: RDD[Point],
+            persistenceLevel: StorageLevel = MEMORY_AND_DISK): ANNModel = {
 
     val random = new JavaRandom(randomSeed)
 
@@ -169,13 +167,13 @@ class ANN private (
       case "hamming" => {
         val hashFunctions = (1 to numTables).map(i => BitSamplingFunction.generate(origDimension, signatureLength, random))
 
-        (HammingDistance, hashFunctions, new SimpleCollisionStrategy)
+        (HammingDistance, hashFunctions, SimpleCollisionStrategy)
       }
 
       case "cosine" => {
         val functions = (1 to numTables).map(i => SignRandomProjectionFunction.generate(origDimension, signatureLength, random))
 
-        (CosineDistance, functions, new SimpleCollisionStrategy)
+        (CosineDistance, functions, SimpleCollisionStrategy)
       }
 
       case "euclidean" => {
@@ -183,7 +181,7 @@ class ANN private (
 
         val functions = (1 to numTables).map(i => generateL2(origDimension, signatureLength, bucketWidth, random))
 
-        (EuclideanDistance, functions, new SimpleCollisionStrategy)
+        (EuclideanDistance, functions, SimpleCollisionStrategy)
       }
 
       case "manhattan" => {
@@ -191,7 +189,7 @@ class ANN private (
 
         val functions = (1 to numTables).map(i => generateL1(origDimension, signatureLength, bucketWidth, random))
 
-        (ManhattanDistance, functions, new SimpleCollisionStrategy)
+        (ManhattanDistance, functions, SimpleCollisionStrategy)
       }
 
       case "fractional" => {
@@ -199,7 +197,7 @@ class ANN private (
 
         val functions = (1 to numTables).map(i => generateFractional(origDimension, signatureLength, bucketWidth, random))
 
-        (FractionalDistance, functions, new SimpleCollisionStrategy)
+        (FractionalDistance, functions, SimpleCollisionStrategy)
       }
 
       case "jaccard" => {
@@ -280,11 +278,7 @@ class ANN private (
 
     }
 
-    SimpleANNModel.train(
-      points,
-      hashFunctions,
-      distanceMeasure
-    )
+    SimpleANNModel.train(points, hashFunctions, distanceMeasure)
   }
 
 }

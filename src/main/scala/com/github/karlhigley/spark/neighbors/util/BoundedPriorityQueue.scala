@@ -9,8 +9,8 @@ import scala.collection.generic.Growable
 /**
  * Copy of org.apache.spark.util.BoundedPriorityQueue which is private for..., eh reasons.
  */
-class BoundedPriorityQueue[A](maxSize: Int)(implicit ord: Ordering[A])
-    extends Iterable[A] with Growable[A] with Serializable {
+class BoundedPriorityQueue[A](maxSize: Int)
+                             (implicit ord: Ordering[A]) extends Iterable[A] with Growable[A] with Serializable {
 
   private val underlying = new JPriorityQueue[A](maxSize, ord)
 
@@ -29,6 +29,7 @@ class BoundedPriorityQueue[A](maxSize: Int)(implicit ord: Ordering[A])
     } else {
       maybeReplaceLowest(elem)
     }
+
     this
   }
 
@@ -40,6 +41,7 @@ class BoundedPriorityQueue[A](maxSize: Int)(implicit ord: Ordering[A])
 
   private def maybeReplaceLowest(a: A): Boolean = {
     val head = underlying.peek()
+
     if (head != null && ord.gt(a, head)) {
       underlying.poll()
       underlying.offer(a)
@@ -47,4 +49,5 @@ class BoundedPriorityQueue[A](maxSize: Int)(implicit ord: Ordering[A])
       false
     }
   }
+
 }
