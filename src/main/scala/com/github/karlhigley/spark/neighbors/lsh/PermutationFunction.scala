@@ -1,6 +1,6 @@
 package com.github.karlhigley.spark.neighbors.lsh
 
-import scala.util.Random
+import java.util.Random
 
 /**
  * Hash function used to permute vector rows for

@@ -3,7 +3,7 @@ package com.github.karlhigley.spark.neighbors.linalg
 import breeze.stats.distributions.{CauchyDistribution, LevyDistribution}
 import org.apache.spark.mllib.linalg.{DenseMatrix, DenseVector, Vector}
 
-import scala.util.Random
+import java.util.Random
 
 /**
  * A simple random projection based on Spark's existing
@@ -25,7 +25,7 @@ object RandomProjection {
    * dimensions
    */
   def generateGaussian(originalDim: Int, projectedDim: Int, random: Random): RandomProjection = {
-    val localMatrix = DenseMatrix.randn(projectedDim, originalDim, random.self)
+    val localMatrix = DenseMatrix.randn(projectedDim, originalDim, random)
     new RandomProjection(localMatrix)
   }
 

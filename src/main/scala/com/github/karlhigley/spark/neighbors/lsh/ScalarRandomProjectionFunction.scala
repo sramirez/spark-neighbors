@@ -1,9 +1,9 @@
 package com.github.karlhigley.spark.neighbors.lsh
 
-import scala.util.Random
+import java.util.Random
 
 import com.github.karlhigley.spark.neighbors.linalg.RandomProjection
-import org.apache.spark.mllib.linalg.{ Vector => MLLibVector }
+import org.apache.spark.mllib.linalg.{Vector => MLLibVector}
 
 import scala.math.floor
 
