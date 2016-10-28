@@ -30,26 +30,14 @@ object RandomProjection {
   }
 
   def generateCauchy(originalDim: Int, projectedDim: Int, random: Random): RandomProjection = {
-    def randc(numRows: Int, numCols: Int): DenseMatrix = {
+    def bla(numRows: Int, numCols: Int): DenseMatrix = {
       checkInputs(numRows, numCols)
 
-      val cauchyDistribution = new CauchyDistribution(0, 1)
-      new DenseMatrix(numRows, numCols, cauchyDistribution.drawMany(numRows * numCols))
+      val cauchyDistribution = new ApacheCauchyDistribution(0, 1, DEFAULT_INVERSE_ABSOLUTE_ACCURACY)
+      new DenseMatrix(numRows, numCols, cauchyDistribution.sample(numRows * numCols))
     }
 
-    val localMatrix = randc(projectedDim, originalDim)
-    new RandomProjection(localMatrix)
-  }
-
-  def generateLevy(originalDim: Int, projectedDim: Int, random: Random): RandomProjection = {
-    def randl(numRows: Int, numCols: Int): DenseMatrix = {
-      checkInputs(numRows, numCols)
-
-      val levyDistribution = new LevyDistribution(0, 1)
-      new DenseMatrix(numRows, numCols, levyDistribution.drawMany(numRows * numCols))
-    }
-
-    val localMatrix = randl(projectedDim, originalDim)
+    val localMatrix = bla(projectedDim, originalDim)
     new RandomProjection(localMatrix)
   }
 
