@@ -165,13 +165,13 @@ class ANN private (
     val (distanceMeasure, hashFunctions, candidateStrategy) = measureName.toLowerCase match {
 
       case "hamming" => {
-        val hashFunctions = (1 to numTables).map(i => BitSamplingFunction.generate(origDimension, signatureLength, random))
+        val hashFunctions: Seq[LSHFunction[_]] = (1 to numTables).map(i => BitSamplingFunction.generate(origDimension, signatureLength, random))
 
         (HammingDistance, hashFunctions, SimpleCollisionStrategy)
       }
 
       case "cosine" => {
-        val functions = (1 to numTables).map(i => SignRandomProjectionFunction.generate(origDimension, signatureLength, random))
+        val functions: Seq[LSHFunction[_]] = (1 to numTables).map(i => SignRandomProjectionFunction.generate(origDimension, signatureLength, random))
 
         (CosineDistance, functions, SimpleCollisionStrategy)
       }
@@ -179,7 +179,7 @@ class ANN private (
       case "euclidean" => {
         require(bucketWidth > 0.0, "Bucket width must be greater than zero.")
 
-        val functions = (1 to numTables).map(i => generateL2(origDimension, signatureLength, bucketWidth, random))
+        val functions: Seq[LSHFunction[_]] = (1 to numTables).map(i => generateL2(origDimension, signatureLength, bucketWidth, random))
 
         (EuclideanDistance, functions, SimpleCollisionStrategy)
       }
@@ -187,7 +187,7 @@ class ANN private (
       case "manhattan" => {
         require(bucketWidth > 0.0, "Bucket width must be greater than zero.")
 
-        val functions = (1 to numTables).map(i => generateL1(origDimension, signatureLength, bucketWidth, random))
+        val functions: Seq[LSHFunction[_]] = (1 to numTables).map(i => generateL1(origDimension, signatureLength, bucketWidth, random))
 
         (ManhattanDistance, functions, SimpleCollisionStrategy)
       }
@@ -195,7 +195,7 @@ class ANN private (
       case "fractional" => {
         require(bucketWidth > 0.0, "Bucket width must be greater than zero.")
 
-        val functions = (1 to numTables).map(i => generateFractional(origDimension, signatureLength, bucketWidth, random))
+        val functions: Seq[LSHFunction[_]] = (1 to numTables).map(i => generateFractional(origDimension, signatureLength, bucketWidth, random))
 
         (FractionalDistance, functions, SimpleCollisionStrategy)
       }
@@ -208,7 +208,7 @@ class ANN private (
           "Number of bands must evenly divide signature length."
         )
 
-        val hashFunctions = (1 to numTables).map(i => MinhashFunction.generate(origDimension, signatureLength, primeModulus, random))
+        val hashFunctions: Seq[LSHFunction[_]] = (1 to numTables).map(i => MinhashFunction.generate(origDimension, signatureLength, primeModulus, random))
 
         (JaccardDistance, hashFunctions, new BandingCollisionStrategy(numBands))
       }
@@ -236,13 +236,13 @@ class ANN private (
     val (distanceMeasure, hashFunctions) = measureName.toLowerCase match {
 
       case "hamming" => {
-        val hashFunctions = (1 to numTables).map(i => BitSamplingFunction.generate(origDimension, signatureLength, random))
+        val hashFunctions: Seq[LSHFunction[_]] = (1 to numTables).map(i => BitSamplingFunction.generate(origDimension, signatureLength, random))
 
         (HammingDistance, hashFunctions)
       }
 
       case "cosine" => {
-        val functions = (1 to numTables).map(i => SignRandomProjectionFunction.generate(origDimension, signatureLength, random))
+        val functions: Seq[LSHFunction[_]] = (1 to numTables).map(i => SignRandomProjectionFunction.generate(origDimension, signatureLength, random))
 
         (CosineDistance, functions)
       }
@@ -250,7 +250,7 @@ class ANN private (
       case "euclidean" => {
         require(bucketWidth > 0.0, "Bucket width must be greater than zero.")
 
-        val functions = (1 to numTables).map(i => generateL2(origDimension, signatureLength, bucketWidth, random))
+        val functions: Seq[LSHFunction[_]] = (1 to numTables).map(i => generateL2(origDimension, signatureLength, bucketWidth, random))
 
         (EuclideanDistance, functions)
       }
@@ -258,7 +258,7 @@ class ANN private (
       case "manhattan" => {
         require(bucketWidth > 0.0, "Bucket width must be greater than zero.")
 
-        val functions = (1 to numTables).map(i => generateL1(origDimension, signatureLength, bucketWidth, random))
+        val functions: Seq[LSHFunction[_]] = (1 to numTables).map(i => generateL1(origDimension, signatureLength, bucketWidth, random))
 
         (ManhattanDistance, functions)
       }
@@ -266,7 +266,7 @@ class ANN private (
       case "fractional" => {
         require(bucketWidth > 0.0, "Bucket width must be greater than zero.")
 
-        val functions = (1 to numTables).map(i => generateFractional(origDimension, signatureLength, bucketWidth, random))
+        val functions: Seq[LSHFunction[_]] = (1 to numTables).map(i => generateFractional(origDimension, signatureLength, bucketWidth, random))
 
         (FractionalDistance, functions)
       }

@@ -30,7 +30,7 @@ object LinalgShim {
    * vector operations that Spark doesn't provide.
    */
   def toBreeze(x: MLLibVector): BV[Double] = {
-    x.toBreeze
+    x.asBreeze
   }
 
 }
