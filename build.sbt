@@ -20,7 +20,6 @@ libraryDependencies ++= Seq(
 libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-core" % testSparkVersion.value % "test" force(),
   "org.apache.spark" %% "spark-mllib" % testSparkVersion.value % "test" force()
-  //"org.scala-lang" % "scala-library" % scalaVersion.value % "compile"
 )
 
 // This is necessary because of how we explicitly specify Spark dependencies
