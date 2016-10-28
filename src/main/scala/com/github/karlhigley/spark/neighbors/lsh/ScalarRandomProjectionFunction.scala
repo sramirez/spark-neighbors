@@ -85,19 +85,6 @@ object ScalarRandomProjectionFunction {
   }
 
   /**
-    * Analogous for fractional $L_p$ norms where p = 0.5
-    */
-  def generateFractional(originalDim: Int,
-                         signatureLength: Int,
-                         bucketWidth: Double,
-                         random: Random = new Random): ScalarRandomProjectionFunction = {
-
-    val generator = RandomProjection.generateLevy _
-
-    generate(originalDim, signatureLength, bucketWidth, generator, random)
-  }
-
-  /**
    * Build a random hash function, given the vector dimension,
    * signature length, bucket width, and a projection generator.
    */

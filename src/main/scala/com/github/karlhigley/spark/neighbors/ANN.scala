@@ -5,7 +5,7 @@ import java.util.{Random => JavaRandom}
 import com.github.karlhigley.spark.neighbors.ANNModel.Point
 import com.github.karlhigley.spark.neighbors.collision.{BandingCollisionStrategy, SimpleCollisionStrategy}
 import com.github.karlhigley.spark.neighbors.linalg._
-import com.github.karlhigley.spark.neighbors.lsh.ScalarRandomProjectionFunction.{generateFractional, generateL1, generateL2}
+import com.github.karlhigley.spark.neighbors.lsh.ScalarRandomProjectionFunction.{generateL1, generateL2}
 import com.github.karlhigley.spark.neighbors.lsh._
 import org.apache.spark.mllib.linalg.{Vector => MLLibVector}
 import org.apache.spark.rdd.RDD
@@ -87,8 +87,7 @@ class ANN private (
    * Bucket width (commonly named "W") used by scalar-random-projection hash functions.
    */
   def setBucketWidth(width: Double): this.type = {
-    require(
-      measureName == "euclidean" || measureName == "manhattan" || measureName == "fractional",
+    require(measureName == "euclidean" || measureName == "manhattan",
       "Bucket width only applies when distance measure is euclidean or manhattan."
     )
     bucketWidth = width
@@ -192,14 +191,6 @@ class ANN private (
         (ManhattanDistance, functions, SimpleCollisionStrategy)
       }
 
-      case "fractional" => {
-        require(bucketWidth > 0.0, "Bucket width must be greater than zero.")
-
-        val functions = (1 to numTables).map(i => generateFractional(origDimension, signatureLength, bucketWidth, random))
-
-        (FractionalDistance, functions, SimpleCollisionStrategy)
-      }
-
       case "jaccard" => {
         require(primeModulus > 0, "Prime modulus must be greater than zero.")
         require(numBands > 0, "Number of bands must be greater than zero.")
@@ -261,14 +252,6 @@ class ANN private (
         val functions = (1 to numTables).map(i => generateL1(origDimension, signatureLength, bucketWidth, random))
 
         (ManhattanDistance, functions)
-      }
-
-      case "fractional" => {
-        require(bucketWidth > 0.0, "Bucket width must be greater than zero.")
-
-        val functions = (1 to numTables).map(i => generateFractional(origDimension, signatureLength, bucketWidth, random))
-
-        (FractionalDistance, functions)
       }
 
       case other: Any =>

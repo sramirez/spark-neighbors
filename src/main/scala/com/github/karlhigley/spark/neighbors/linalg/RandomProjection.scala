@@ -1,9 +1,10 @@
 package com.github.karlhigley.spark.neighbors.linalg
 
-import breeze.stats.distributions.{CauchyDistribution, LevyDistribution}
-import org.apache.spark.mllib.linalg.{DenseMatrix, DenseVector, Vector}
-
 import java.util.Random
+
+import org.apache.commons.math3.distribution.CauchyDistribution.DEFAULT_INVERSE_ABSOLUTE_ACCURACY
+import org.apache.commons.math3.distribution.{CauchyDistribution => ApacheCauchyDistribution}
+import org.apache.spark.mllib.linalg.{DenseMatrix, DenseVector, Vector}
 
 /**
  * A simple random projection based on Spark's existing
