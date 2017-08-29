@@ -13,6 +13,11 @@ import org.apache.spark.mllib.linalg.Vectors
 import com.github.karlhigley.spark.neighbors.ANNModel.IDPoint
 import org.apache.hadoop.mapreduce.Partitioner
 import com.github.karlhigley.spark.neighbors.lsh.SignRandomProjectionFunction
+import org.apache.spark.ml.feature.LabeledPoint
+import com.github.karlhigley.spark.neighbors.lsh.BitSignature
+import com.github.karlhigley.spark.neighbors.linalg.BitHammingDistance
+import com.github.karlhigley.spark.neighbors.lsh.BitHashTableEntry
+import com.github.karlhigley.spark.neighbors.lsh.BitHashTableEntry
 
 /**
  * Model containing hash tables produced by computing signatures
@@ -23,8 +28,9 @@ class fastANNModel(val entries: RDD[(Double, _ <: HashTableEntry[_])],
                val collisionStrategy: CollisionStrategy,
                val distance: DistanceMeasure,
                val numPoints: Int,
-               val tau: Float,
-               val thLength: Int = 5) extends Serializable {
+               val signatureLength: Int,
+               val thLength: Int = 5,
+               val thDistance: Float = .9f) extends Serializable {
 
   import fastANNModel._
 
@@ -36,32 +42,59 @@ class fastANNModel(val entries: RDD[(Double, _ <: HashTableEntry[_])],
   val normMin = entries.min()(ordering)._1
   
   val r = (normMax - normMin) / thLength
+  val tau = signatureLength * math.acos(thDistance).toFloat
+  val factor = math.Pi / signatureLength
   
-  val rightPad = entries.glom().map(_.take(r))
-
-    val bcFirsts = sc.broadcast(firstElements)
+  //val pad = entries.glom().map(a => (a.head._1 - r, a.last._1 + r))
+  //val bcPads = entries.context.broadcast(pad)
   
   
-  lazy val candidates =
+  /*lazy val candidates =
     collisionStrategy
       .apply(entries)
       .groupByKey(entries.getNumPartitions)
-      .values
+      .values */
 
   /**
    * Identify pairs of nearest neighbors by applying a
    * collision strategy to the hash tables and then computing
    * the actual distance between candidate pairs.
    */
-  def neighbors(quantity: Int): RDD[(Long, Array[(Long, Double)])] = {
+  def neighbors(quantity: Int): RDD[(Long, Array[BitHashTableEntry])] = {
     
     entries.mapPartitionsWithIndex{ (index, iterator) => {
-          val myList = iterator.toSeq
-          myList.map(x => x + " -> " + index).iterator
+          val elems = iterator.toSeq
+          val output = (0 until elems.size).map{ i =>
+            var tree = scala.collection.immutable.TreeMap.empty[Float, BitHashTableEntry]
+            val hi = elems(i)._2.asInstanceOf[BitHashTableEntry]
+            val ni = elems(i)._2.norm
+            
+            def loopNeighbors(j: Int) = {
+              val hj = elems(j)._2.asInstanceOf[BitHashTableEntry]
+              val hamdist = BitHammingDistance.apply(hi.signature, hj.signature)
+              if(hamdist <= tau){
+                val nj = elems(j)._2.norm
+                val eudist = math.pow(ni, 2) + math.pow(nj, 2) -
+                  2 * ni * nj * math.cos(factor * hamdist)
+                
+                tree += eudist.toFloat -> hj
+              }
+            } 
+            
+            // traverse from here to left (till r radius limit)    
+            for(j <- i until 0 if elems(i)._1 - elems(j)._1 <= r)  
+              loopNeighbors(j)  
+             
+            
+            // traverse from here to right
+            for(j <- i until elems.size if elems(j)._1 - elems(i)._1 <= r)
+              loopNeighbors(j)  
+            
+            (hi.id, tree.takeRight(quantity).map(_._2).toArray)
+          }
+          output.iterator
         }
     }
-    
-    computeDistances(candidates).topByKey(quantity)(ANNModel.ordering)
   }
 
   /**
@@ -71,22 +104,7 @@ class fastANNModel(val entries: RDD[(Double, _ <: HashTableEntry[_])],
    * computing candidate distances in the "normal" fashion.
    */
   def neighbors(queryPoints: RDD[IDPoint], quantity: Int): RDD[(Long, Array[(Long, Double)])] = {
-    
-    
-    
-    
-    val modelEntries = collisionStrategy.apply(indexedTables)
 
-    val queryHashTables = ANNModel.generateHashTables(queryPoints, hashFunctions)
-    val queryEntries = collisionStrategy.apply(queryHashTables)
-
-    val candidateGroups =
-      queryEntries.cogroup(modelEntries)
-        .values
-
-    val neighbors = computeBipartiteDistances(candidateGroups)
-
-    neighbors.topByKey(quantity)(ANNModel.ordering)
   }
 
   /**
@@ -160,7 +178,7 @@ object fastANNModel {
             hashFunctions: Iterable[_ <: LSHFunction[_]],
             collisionStrategy: CollisionStrategy,
             measure: DistanceMeasure,
-            tau: Float,
+            signatureLength: Int,
             persistenceLevel: StorageLevel): fastANNModel = {
 
     val hashTables = generateHashTables(points, hashFunctions).sortByKey()
@@ -173,7 +191,7 @@ object fastANNModel {
       collisionStrategy,
       measure,
       points.count.toInt,
-      tau)
+      signatureLength)
 
   }
 

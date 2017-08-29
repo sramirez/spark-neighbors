@@ -2,8 +2,9 @@ package com.github.karlhigley.spark.neighbors.linalg
 
 import breeze.linalg.norm
 import org.apache.spark.ml.linalg.{SparseVector, Vectors, Vector}
-
 import org.apache.spark.ml.linalg.LinalgShim
+import com.github.karlhigley.spark.neighbors.lsh.BitSignature
+import com.github.karlhigley.spark.neighbors.lsh.BitSignature
 
 /**
  * This abstract base class provides the interface for
@@ -79,6 +80,20 @@ final object HammingDistance extends DistanceMeasure {
   def apply(v1: Vector, v2: Vector): Double = {
     val i1 = v1.asInstanceOf[SparseVector].indices.toSet
     val i2 = v2.asInstanceOf[SparseVector].indices.toSet
+    (i1.union(i2).size - i1.intersect(i2).size).toDouble
+  }
+
+}
+
+final object BitHammingDistance extends DistanceMeasure {
+
+  /**
+   * Compute Hamming distance between two bitsets
+   *
+   */
+  def apply(v1: BitSignature, v2: BitSignature): Double = {
+    val i1 = v1.elements
+    val i2 = v2.elements
     (i1.union(i2).size - i1.intersect(i2).size).toDouble
   }
 

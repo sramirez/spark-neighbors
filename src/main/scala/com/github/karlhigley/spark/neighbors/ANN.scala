@@ -253,7 +253,7 @@ class ANN private (
       hashFunctions,
       collisionStrategy = SimpleCollisionStrategy,
       measure = CosineDistance,
-      tau = signatureLength * math.acos(thDistance).toFloat,
+      signatureLength,
       persistenceLevel
     )
   }
