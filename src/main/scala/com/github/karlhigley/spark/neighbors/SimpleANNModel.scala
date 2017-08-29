@@ -1,11 +1,10 @@
 package com.github.karlhigley.spark.neighbors
 
-import com.github.karlhigley.spark.neighbors.ANNModel.{ CandidateGroup, Point }
+import com.github.karlhigley.spark.neighbors.ANNModel.{ CandidateGroup, IDPoint }
 import com.github.karlhigley.spark.neighbors.linalg.DistanceMeasure
 import com.github.karlhigley.spark.neighbors.lsh.{ HashTableEntry, LSHFunction }
 import com.github.karlhigley.spark.neighbors.util.NonSparkHelperFunctions._
 import org.apache.spark.mllib.linalg.{ Vector => MLLibVector }
-
 import scala.util.hashing.MurmurHash3
 
 /**
@@ -43,7 +42,7 @@ class SimpleANNModel(val hashTables: Iterable[_ <: HashTableEntry[_]],
    * only potential matches, cogrouping the two RDDs, and
    * computing candidate distances in the "normal" fashion.
    */
-  def neighbors(queryPoints: Iterable[Point], quantity: Int): Map[Long, Iterable[(Long, Double)]] = {
+  def neighbors(queryPoints: Iterable[IDPoint], quantity: Int): Map[Long, Iterable[(Long, Double)]] = {
     val modelEntries = collisionStrategy.apply(hashTables)
 
     val queryHashTables = SimpleANNModel.generateHashTables(queryPoints, hashFunctions)
@@ -85,7 +84,7 @@ class SimpleANNModel(val hashTables: Iterable[_ <: HashTableEntry[_]],
             (id1, vector1) <- group.iterator
             (id2, vector2) <- group.iterator
             if id1 < id2
-          } yield ((id1, id2), distance(vector1, vector2))
+          } yield ((id1, id2), distance(vector1.features, vector2.features))
       }
       .foldLeft(Map[(Long, Long), Double]()) {
         case (acc, (ids, distance)) =>
@@ -109,7 +108,7 @@ class SimpleANNModel(val hashTables: Iterable[_ <: HashTableEntry[_]],
           for {
             (id1, vector1) <- groupA.iterator
             (id2, vector2) <- groupB.iterator
-          } yield ((id1, id2), distance(vector1, vector2))
+          } yield ((id1, id2), distance(vector1.features, vector2.features))
       }
       .foldLeft(Map[(Long, Long), Double]()) {
         case (acc, (ids, distance)) =>
@@ -128,7 +127,7 @@ object SimpleANNModel {
    * Train a model by computing signatures for the supplied
    * points
    */
-  def train(points: Iterable[(Long, MLLibVector)],
+  def train(points: Iterable[IDPoint],
             hashFunctions: Iterable[_ <: LSHFunction[_]],
             measure: DistanceMeasure) =
     new SimpleANNModel(
@@ -137,7 +136,7 @@ object SimpleANNModel {
       measure,
       points.size)
 
-  def generateHashTables(points: Iterable[(Long, MLLibVector)],
+  def generateHashTables(points: Iterable[IDPoint],
                          hashFunctions: Iterable[_ <: LSHFunction[_]]): Iterable[_ <: HashTableEntry[_]] =
     points
       .flatMap {

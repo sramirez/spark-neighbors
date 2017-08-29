@@ -1,29 +1,51 @@
 package com.github.karlhigley.spark.neighbors
 
+import org.apache.spark.SparkContext
+import org.apache.spark.SparkContext._
 import com.github.karlhigley.spark.neighbors.collision.CollisionStrategy
 import com.github.karlhigley.spark.neighbors.linalg.DistanceMeasure
 import com.github.karlhigley.spark.neighbors.lsh.{HashTableEntry, LSHFunction}
+import org.apache.spark.mllib.linalg.{Vector => MLLibVector}
 import org.apache.spark.mllib.rdd.MLPairRDDFunctions._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
-import org.apache.spark.ml.feature.LabeledPoint
+import org.apache.spark.mllib.linalg.Vectors
+import com.github.karlhigley.spark.neighbors.ANNModel.IDPoint
+import org.apache.hadoop.mapreduce.Partitioner
+import com.github.karlhigley.spark.neighbors.lsh.SignRandomProjectionFunction
 
 /**
  * Model containing hash tables produced by computing signatures
  * for each supplied vector.
  */
-class ANNModel(val hashTables: RDD[_ <: HashTableEntry[_]],
+class fastANNModel(val entries: RDD[(Double, _ <: HashTableEntry[_])],
                val hashFunctions: Iterable[_ <: LSHFunction[_]],
                val collisionStrategy: CollisionStrategy,
                val distance: DistanceMeasure,
-               val numPoints: Int) extends Serializable {
+               val numPoints: Int,
+               val tau: Float,
+               val thLength: Int = 5) extends Serializable {
 
-  import ANNModel._
+  import fastANNModel._
 
+  val ordering = new Ordering[Tuple2[Double, _ <: HashTableEntry[_]]]() {
+    override def compare(x: (Double, _), y: (Double, _)): Int = 
+        Ordering[Double].compare(x._1, y._1)
+    }
+  val normMax = entries.max()(ordering)._1
+  val normMin = entries.min()(ordering)._1
+  
+  val r = (normMax - normMin) / thLength
+  
+  val rightPad = entries.glom().map(_.take(r))
+
+    val bcFirsts = sc.broadcast(firstElements)
+  
+  
   lazy val candidates =
     collisionStrategy
-      .apply(hashTables)
-      .groupByKey(hashTables.getNumPartitions)
+      .apply(entries)
+      .groupByKey(entries.getNumPartitions)
       .values
 
   /**
@@ -31,8 +53,16 @@ class ANNModel(val hashTables: RDD[_ <: HashTableEntry[_]],
    * collision strategy to the hash tables and then computing
    * the actual distance between candidate pairs.
    */
-  def neighbors(quantity: Int): RDD[(Long, Array[(Long, Double)])] =
+  def neighbors(quantity: Int): RDD[(Long, Array[(Long, Double)])] = {
+    
+    entries.mapPartitionsWithIndex{ (index, iterator) => {
+          val myList = iterator.toSeq
+          myList.map(x => x + " -> " + index).iterator
+        }
+    }
+    
     computeDistances(candidates).topByKey(quantity)(ANNModel.ordering)
+  }
 
   /**
    * Identify the nearest neighbors of a collection of new points
@@ -41,7 +71,11 @@ class ANNModel(val hashTables: RDD[_ <: HashTableEntry[_]],
    * computing candidate distances in the "normal" fashion.
    */
   def neighbors(queryPoints: RDD[IDPoint], quantity: Int): RDD[(Long, Array[(Long, Double)])] = {
-    val modelEntries = collisionStrategy.apply(hashTables)
+    
+    
+    
+    
+    val modelEntries = collisionStrategy.apply(indexedTables)
 
     val queryHashTables = ANNModel.generateHashTables(queryPoints, hashFunctions)
     val queryEntries = collisionStrategy.apply(queryHashTables)
@@ -114,12 +148,10 @@ class ANNModel(val hashTables: RDD[_ <: HashTableEntry[_]],
 
 }
 
-object ANNModel {
 
-  type IDPoint = (Long, LabeledPoint)
+object fastANNModel {
+
   type CandidateGroup = Iterable[IDPoint]
-
-  val ordering = Ordering[Double].on[(Long, Double)](_._2).reverse
 
   /**
    * Train a model by computing signatures for the supplied points
@@ -128,27 +160,33 @@ object ANNModel {
             hashFunctions: Iterable[_ <: LSHFunction[_]],
             collisionStrategy: CollisionStrategy,
             measure: DistanceMeasure,
-            persistenceLevel: StorageLevel): ANNModel = {
+            tau: Float,
+            persistenceLevel: StorageLevel): fastANNModel = {
 
-    val hashTables: RDD[_ <: HashTableEntry[_]] = generateHashTables(points, hashFunctions)
-
+    val hashTables = generateHashTables(points, hashFunctions).sortByKey()
+    
     hashTables.persist(persistenceLevel)
 
-    new ANNModel(
+    new fastANNModel(
       hashTables,
       hashFunctions,
       collisionStrategy,
       measure,
-      points.count.toInt)
+      points.count.toInt,
+      tau)
 
   }
 
-  def generateHashTables(points: RDD[(Long, LabeledPoint)],
-                         hashFunctions: Iterable[_ <: LSHFunction[_]]): RDD[_ <: HashTableEntry[_]] =
+  def generateHashTables(points: RDD[IDPoint],
+                         hashFunctions: Iterable[_ <: LSHFunction[_]]): RDD[(Double, HashTableEntry[_])] =
     points
       .flatMap{ case (id, vector) =>
         hashFunctions
           .zipWithIndex
-          .map{ case (hashFunc: LSHFunction[_], table: Int) => hashFunc.hashTableEntry(id, table, vector) }}
+          .map{ case (hashFunc: LSHFunction[_], table: Int) => 
+            val entry = hashFunc.hashTableEntry(id, table, vector)
+            entry.norm -> entry
+          }
+        }
 
 }

@@ -1,6 +1,6 @@
 package com.github.karlhigley.spark.neighbors.collision
 
-import com.github.karlhigley.spark.neighbors.ANNModel.Point
+import com.github.karlhigley.spark.neighbors.ANNModel.IDPoint
 import com.github.karlhigley.spark.neighbors.lsh.HashTableEntry
 import org.apache.spark.rdd.RDD
 
@@ -13,6 +13,6 @@ import org.apache.spark.rdd.RDD
  */
 abstract class CollisionStrategy {
 
-  def apply(hashTables: RDD[_ <: HashTableEntry[_]]): RDD[(Product, Point)]
+  def apply(hashTables: RDD[_ <: HashTableEntry[_]]): RDD[(Product, IDPoint)]
 
 }

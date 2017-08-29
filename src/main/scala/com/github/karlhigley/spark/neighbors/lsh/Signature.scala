@@ -1,8 +1,9 @@
 package com.github.karlhigley.spark.neighbors.lsh
 
 import scala.collection.immutable.BitSet
-
 import org.apache.spark.mllib.linalg.{ Vector => MLLibVector }
+import org.apache.spark.ml.feature.LabeledPoint
+import org.apache.spark.ml.linalg.Vectors
 
 /**
  * This wrapper class allows ANNModel to ignore the
@@ -32,9 +33,11 @@ sealed abstract class HashTableEntry[+S <: Signature[_]] {
   val id: Long
   val table: Int
   val signature: S
-  val point: MLLibVector
+  val point: LabeledPoint
 
   def sigElements: Array[Int]
+  lazy val norm: Double = Vectors.norm(point.features, 1)
+  def size: Int
 
 }
 
@@ -44,6 +47,7 @@ final case class BitHashTableEntry(id: Long,
                                    point: MLLibVector) extends HashTableEntry[BitSignature] {
 
   def sigElements: Array[Int] = signature.elements.toArray
+  def size: Int = signature.elements.size
 
 }
 

@@ -4,7 +4,7 @@ import com.github.karlhigley.spark.neighbors.lsh.HashTableEntry
 import org.apache.spark.rdd.RDD
 
 import scala.util.hashing.MurmurHash3
-import com.github.karlhigley.spark.neighbors.ANNModel.Point
+import com.github.karlhigley.spark.neighbors.ANNModel.IDPoint
 
 /**
  * A very simple collision strategy for candidate identification
@@ -18,7 +18,7 @@ object SimpleCollisionStrategy extends CollisionStrategy with Serializable {
    * Convert hash tables into an RDD that is "collidable" using groupByKey.
    * The new keys contain the hash table id, and a hashed version of the signature.
    */
-  def apply(hashTables: RDD[_ <: HashTableEntry[_]]): RDD[(Product, Point)] =
+  def apply(hashTables: RDD[_ <: HashTableEntry[_]]): RDD[(Product, IDPoint)] =
     hashTables
       .map(entry => {
         // Arrays are mutable and can't be used in RDD keys. Use a hash value (i.e. an int) as a substitute

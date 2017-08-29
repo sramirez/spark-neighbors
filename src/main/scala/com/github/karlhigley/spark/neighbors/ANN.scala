@@ -1,8 +1,6 @@
 package com.github.karlhigley.spark.neighbors
 
 import java.util.{Random => JavaRandom}
-
-import com.github.karlhigley.spark.neighbors.ANNModel.Point
 import com.github.karlhigley.spark.neighbors.collision.{BandingCollisionStrategy, SimpleCollisionStrategy}
 import com.github.karlhigley.spark.neighbors.linalg._
 import com.github.karlhigley.spark.neighbors.lsh.ScalarRandomProjectionFunction.{generateFractional, generateL1, generateL2}
@@ -11,8 +9,9 @@ import org.apache.spark.mllib.linalg.{Vector => MLLibVector}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel.MEMORY_AND_DISK
-
 import scala.util.Random
+import org.apache.spark.ml.feature.LabeledPoint
+import com.github.karlhigley.spark.neighbors.ANNModel.IDPoint
 
 /**
  * Approximate Nearest Neighbors (ANN) using locality-sensitive hashing (LSH)
@@ -157,7 +156,7 @@ class ANN private (
    *                   IDs must be unique and >= 0.
    * @return ANNModel containing computed hash tables
    */
-  def train(points: RDD[Point],
+  def train(points: RDD[IDPoint],
             persistenceLevel: StorageLevel = MEMORY_AND_DISK): ANNModel = {
 
     val random = new JavaRandom(randomSeed)
@@ -228,8 +227,38 @@ class ANN private (
       persistenceLevel
     )
   }
+  
+  /**
+   * Build a fast ANN model using the given dataset.
+   * Improvements in searches are based on (2013, Marukatat).
+   * Instances are pre-indexed by norm, euclidean distance is
+   * approximated by using the hamming distance of bit signatures.
+   *
+   * @param points    RDD of vectors paired with IDs.
+   *                   IDs must be unique and >= 0.
+   * @return fastANNModel containing computed hash tables
+   */
+  def fastANNtrain(points: RDD[IDPoint],
+            thDistance: Float = .9f,
+            persistenceLevel: StorageLevel = MEMORY_AND_DISK): fastANNModel = {
 
-  def train(points: Iterable[Point]): SimpleANNModel = {
+    val random = new JavaRandom(randomSeed)
+
+    /** Only one table to reduce the complexity and hardness of computations */
+    val hashFunctions: Seq[LSHFunction[_]] = Seq(
+      SignRandomProjectionFunction.generate(origDimension, signatureLength, random))
+
+    fastANNModel.train(
+      points,
+      hashFunctions,
+      collisionStrategy = SimpleCollisionStrategy,
+      measure = CosineDistance,
+      tau = signatureLength * math.acos(thDistance).toFloat,
+      persistenceLevel
+    )
+  }
+
+  def train(points: Iterable[IDPoint]): SimpleANNModel = {
 
     val random = new JavaRandom(randomSeed)
 

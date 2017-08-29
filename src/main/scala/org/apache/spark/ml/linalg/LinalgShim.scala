@@ -1,6 +1,5 @@
-package org.apache.spark.mllib.linalg
+package org.apache.spark.ml.linalg
 
-import org.apache.spark.mllib.linalg.{ Vector => MLLibVector }
 import breeze.linalg.{ SparseVector => BSV, Vector => BV }
 
 /**
@@ -21,7 +20,7 @@ object LinalgShim {
    * from netlib-java for the case of two dense vectors, or an
    * optimized Scala implementation in the case of sparse vectors.
    */
-  def dot(x: MLLibVector, y: MLLibVector): Double = {
+  def dot(x: Vector, y: Vector): Double = {
     BLAS.dot(x, y)
   }
 
@@ -29,7 +28,7 @@ object LinalgShim {
    * Convert a Spark vector to a Breeze vector to access
    * vector operations that Spark doesn't provide.
    */
-  def toBreeze(x: MLLibVector): BV[Double] = {
+  def toBreeze(x: Vector): BV[Double] = {
     x.asBreeze
   }
 
