@@ -2,8 +2,8 @@ package com.github.karlhigley.spark.neighbors.lsh
 
 import java.util.Random
 import scala.collection.immutable.BitSet
-
 import org.apache.spark.mllib.linalg.{ Vector => MLLibVector, SparseVector }
+import org.apache.spark.ml.feature.LabeledPoint
 
 /**
  *
@@ -19,15 +19,15 @@ class BitSamplingFunction(val sampledBits: Array[Int]) extends LSHFunction[BitSi
   /**
    * Compute the hash signature of the supplied vector
    */
-  def signature(vector: MLLibVector): BitSignature = {
-    val sampled = vector.asInstanceOf[SparseVector].indices.intersect(sampledBits)
+  def signature(vector: LabeledPoint): BitSignature = {
+    val sampled = vector.features.asInstanceOf[SparseVector].indices.intersect(sampledBits)
     new BitSignature(BitSet(sampled: _*))
   }
 
   /**
    * Build a hash table entry for the supplied vector
    */
-  def hashTableEntry(id: Long, table: Int, v: MLLibVector): BitHashTableEntry = {
+  def hashTableEntry(id: Long, table: Int, v: LabeledPoint): BitHashTableEntry = {
     BitHashTableEntry(id, table, signature(v), v)
   }
 

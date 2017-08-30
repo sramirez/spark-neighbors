@@ -92,9 +92,8 @@ final object BitHammingDistance extends DistanceMeasure {
    *
    */
   def apply(v1: BitSignature, v2: BitSignature): Double = {
-    val i1 = v1.elements
-    val i2 = v2.elements
-    (i1.union(i2).size - i1.intersect(i2).size).toDouble
+    (v1.elements.union(v2.elements).size 
+        - v1.elements.intersect(v2.elements).size).toDouble
   }
 
 }

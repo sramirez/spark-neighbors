@@ -1,11 +1,10 @@
 package com.github.karlhigley.spark.neighbors.lsh
 
 import java.util.Random
-
 import com.github.karlhigley.spark.neighbors.linalg.RandomProjection
 import org.apache.spark.mllib.linalg.{Vector => MLLibVector}
-
 import scala.math.floor
+import org.apache.spark.ml.feature.LabeledPoint
 
 /**
  * References:
@@ -22,9 +21,9 @@ class ScalarRandomProjectionFunction(val projection: RandomProjection,
   /**
    * Compute the hash signature of the supplied vector
    */
-  def signature(vector: MLLibVector): IntSignature = {
+  def signature(vector: LabeledPoint): IntSignature = {
 
-    val ax = projection(vector)
+    val ax = projection(vector.features)
 
     val sig = new Array[Int](ax.size)
 
@@ -38,7 +37,7 @@ class ScalarRandomProjectionFunction(val projection: RandomProjection,
   /**
    * Build a hash table entry for the supplied vector
    */
-  def hashTableEntry(id: Long, table: Int, v: MLLibVector): IntHashTableEntry = {
+  def hashTableEntry(id: Long, table: Int, v: LabeledPoint): IntHashTableEntry = {
     IntHashTableEntry(id, table, signature(v), v)
   }
 

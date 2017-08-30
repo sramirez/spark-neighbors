@@ -1,14 +1,11 @@
 package com.github.karlhigley.spark.neighbors.collision
 
 import scala.util.hashing.MurmurHash3
-
 import org.apache.spark.mllib.linalg.SparseVector
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
-
 import com.github.karlhigley.spark.neighbors.lsh.{ BitSignature, HashTableEntry, IntSignature }
-
-import com.github.karlhigley.spark.neighbors.ANNModel.Point
+import com.github.karlhigley.spark.neighbors.ANNModel.IDPoint
 
 /**
  * A banding collision strategy for candidate identification with Minhash
@@ -20,7 +17,7 @@ case class BandingCollisionStrategy(bands: Int) extends CollisionStrategy with S
    * The new keys contain the hash table id, the band id, and a hashed version
    * of the banded signature.
    */
-  def apply(hashTables: RDD[_ <: HashTableEntry[_]]): RDD[(Product, Point)] = {
+  def apply(hashTables: RDD[_ <: HashTableEntry[_]]): RDD[(Product, IDPoint)] = {
     val bandEntries = hashTables.flatMap(entry => {
       val elements = entry.sigElements
       val banded = elements.grouped(elements.size / bands).zipWithIndex

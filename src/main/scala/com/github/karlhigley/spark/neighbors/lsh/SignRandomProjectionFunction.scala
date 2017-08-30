@@ -1,12 +1,11 @@
 package com.github.karlhigley.spark.neighbors.lsh
 
 import java.util.Random
-
 import com.github.karlhigley.spark.neighbors.linalg.RandomProjection
 import org.apache.spark.mllib.linalg.{Vector => MLLibVector}
-
 import scala.collection.immutable.BitSet
 import scala.collection.mutable.ArrayBuffer
+import org.apache.spark.ml.feature.LabeledPoint
 
 /**
  *
@@ -24,8 +23,8 @@ class SignRandomProjectionFunction(val projection: RandomProjection,
   /**
    * Compute the hash signature of the supplied vector
    */
-  def signature(vector: MLLibVector): BitSignature = {
-    val projected = projection(vector)
+  def signature(vector: LabeledPoint): BitSignature = {
+    val projected = projection(vector.features)
     val bits = new ArrayBuffer[Int]
 
     projected.foreachActive((i, v) => {
@@ -37,7 +36,7 @@ class SignRandomProjectionFunction(val projection: RandomProjection,
   /**
    * Build a hash table entry for the supplied vector
    */
-  def hashTableEntry(id: Long, table: Int, v: MLLibVector): BitHashTableEntry = {
+  def hashTableEntry(id: Long, table: Int, v: LabeledPoint): BitHashTableEntry = {
     BitHashTableEntry(id, table, signature(v), v)
   }
 

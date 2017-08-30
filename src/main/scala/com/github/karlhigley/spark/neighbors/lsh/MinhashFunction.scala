@@ -1,8 +1,8 @@
 package com.github.karlhigley.spark.neighbors.lsh
 
 import java.util.Random
-
 import org.apache.spark.mllib.linalg.{SparseVector, Vector => MLLibVector}
+import org.apache.spark.ml.feature.LabeledPoint
 
 /**
  *
@@ -22,9 +22,9 @@ class MinhashFunction(val permutations: Array[PermutationFunction]) extends LSHF
    * as a member of the set. Note that "active" includes explicit
    * zeros, which should not (but still might) be present in SparseVectors.
    */
-  def signature(vector: MLLibVector): IntSignature = {
+  def signature(vector: LabeledPoint): IntSignature = {
     val sig = permutations.map(p => {
-      vector.asInstanceOf[SparseVector].indices.map(p.apply).min
+      vector.features.asInstanceOf[SparseVector].indices.map(p.apply).min
     })
 
     new IntSignature(sig)
@@ -33,7 +33,7 @@ class MinhashFunction(val permutations: Array[PermutationFunction]) extends LSHF
   /**
    * Build a hash table entry for the supplied vector
    */
-  def hashTableEntry(id: Long, table: Int, v: MLLibVector): IntHashTableEntry = {
+  def hashTableEntry(id: Long, table: Int, v: LabeledPoint): IntHashTableEntry = {
     IntHashTableEntry(id, table, signature(v), v)
   }
 

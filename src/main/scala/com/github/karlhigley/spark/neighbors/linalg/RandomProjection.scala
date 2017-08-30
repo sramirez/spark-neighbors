@@ -1,7 +1,7 @@
 package com.github.karlhigley.spark.neighbors.linalg
 
 import breeze.stats.distributions.{CauchyDistribution, LevyDistribution}
-import org.apache.spark.mllib.linalg.{DenseMatrix, DenseVector, Vector}
+import org.apache.spark.ml.linalg.{DenseMatrix, DenseVector, Vector}
 
 import java.util.Random
 

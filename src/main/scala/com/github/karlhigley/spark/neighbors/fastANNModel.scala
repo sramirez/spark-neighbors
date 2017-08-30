@@ -17,13 +17,14 @@ import org.apache.spark.ml.feature.LabeledPoint
 import com.github.karlhigley.spark.neighbors.lsh.BitSignature
 import com.github.karlhigley.spark.neighbors.linalg.BitHammingDistance
 import com.github.karlhigley.spark.neighbors.lsh.BitHashTableEntry
-import com.github.karlhigley.spark.neighbors.lsh.BitHashTableEntry
+import com.github.karlhigley.spark.neighbors.util.BoundedPriorityQueue
+import scala.collection.Searching._
 
 /**
  * Model containing hash tables produced by computing signatures
  * for each supplied vector.
  */
-class fastANNModel(val entries: RDD[(Double, _ <: HashTableEntry[_])],
+class fastANNModel(val entries: RDD[(Float, BitHashTableEntry)],
                val hashFunctions: Iterable[_ <: LSHFunction[_]],
                val collisionStrategy: CollisionStrategy,
                val distance: DistanceMeasure,
@@ -34,9 +35,9 @@ class fastANNModel(val entries: RDD[(Double, _ <: HashTableEntry[_])],
 
   import fastANNModel._
 
-  val ordering = new Ordering[Tuple2[Double, _ <: HashTableEntry[_]]]() {
-    override def compare(x: (Double, _), y: (Double, _)): Int = 
-        Ordering[Double].compare(x._1, y._1)
+  val ordering = new Ordering[Tuple2[Float, BitHashTableEntry]]() {
+    override def compare(x: (Float, _), y: (Float, _)): Int = 
+        Ordering[Float].compare(x._1, y._1)
     }
   val normMax = entries.max()(ordering)._1
   val normMin = entries.min()(ordering)._1
@@ -44,6 +45,43 @@ class fastANNModel(val entries: RDD[(Double, _ <: HashTableEntry[_])],
   val r = (normMax - normMin) / thLength
   val tau = signatureLength * math.acos(thDistance).toFloat
   val factor = math.Pi / signatureLength
+  
+      
+  def fastNearestSearch(quantity: Int, 
+      elems: Seq[(Float, BitHashTableEntry)], 
+      leftIndex: Int, 
+      rightIndex: Int,
+      index: Int): BoundedPriorityQueue[(Float, BitHashTableEntry)] = {
+    
+    var topk = new BoundedPriorityQueue[(Float, BitHashTableEntry)](quantity)(ordering)
+    
+    // traverse from here to left (till r radius limit)    
+    for(j <- leftIndex until 0 if elems(index)._1 - elems(j)._1 <= r)  {
+      approxEuclidDistance(elems(index)._2, elems(j)._2) match {
+        case Some(neig) => topk += neig
+      }
+    }  
+  
+    // traverse from here to right
+    for(j <- rightIndex until elems.size if elems(j)._1 - elems(index)._1 <= r){
+      approxEuclidDistance(elems(index)._2, elems(j)._2) match {
+      case Some(neig) => topk += neig
+      }
+    }
+    
+    topk
+  } 
+  
+  def approxEuclidDistance(a: BitHashTableEntry, b: BitHashTableEntry): Option[(Float, BitHashTableEntry)] = {
+    val hamdist = BitHammingDistance.apply(a.signature, b.signature)
+    if(hamdist <= tau){
+      val ni = a.norm; val nj = b.norm
+      val eudist = math.pow(ni, 2) + math.pow(nj, 2) -
+        2 * ni * nj * math.cos(factor * hamdist)                
+      Some(eudist.toFloat -> b)
+    }
+    None
+  } 
   
   //val pad = entries.glom().map(a => (a.head._1 - r, a.last._1 + r))
   //val bcPads = entries.context.broadcast(pad)
@@ -60,40 +98,30 @@ class fastANNModel(val entries: RDD[(Double, _ <: HashTableEntry[_])],
    * collision strategy to the hash tables and then computing
    * the actual distance between candidate pairs.
    */
-  def neighbors(quantity: Int): RDD[(Long, Array[BitHashTableEntry])] = {
+  def fullNeighbors(quantity: Int): RDD[(BitHashTableEntry, Seq[(Float, BitHashTableEntry)])] = {
     
-    entries.mapPartitionsWithIndex{ (index, iterator) => {
-          val elems = iterator.toSeq
-          val output = (0 until elems.size).map{ i =>
-            var tree = scala.collection.immutable.TreeMap.empty[Float, BitHashTableEntry]
-            val hi = elems(i)._2.asInstanceOf[BitHashTableEntry]
-            val ni = elems(i)._2.norm
-            
-            def loopNeighbors(j: Int) = {
-              val hj = elems(j)._2.asInstanceOf[BitHashTableEntry]
-              val hamdist = BitHammingDistance.apply(hi.signature, hj.signature)
-              if(hamdist <= tau){
-                val nj = elems(j)._2.norm
-                val eudist = math.pow(ni, 2) + math.pow(nj, 2) -
-                  2 * ni * nj * math.cos(factor * hamdist)
-                
-                tree += eudist.toFloat -> hj
-              }
-            } 
-            
-            // traverse from here to left (till r radius limit)    
-            for(j <- i until 0 if elems(i)._1 - elems(j)._1 <= r)  
-              loopNeighbors(j)  
-             
-            
-            // traverse from here to right
-            for(j <- i until elems.size if elems(j)._1 - elems(i)._1 <= r)
-              loopNeighbors(j)  
-            
-            (hi.id, tree.takeRight(quantity).map(_._2).toArray)
-          }
-          output.iterator
+    entries.mapPartitions{ iterator => 
+        val elems = iterator.toSeq
+        val output = (0 until elems.size).map{ i =>
+          val topk = fastNearestSearch(quantity, elems, i - 1, i + 1, i)
+          (elems(i)._2, topk.toSeq)
         }
+        output.iterator
+    }
+  }
+  
+  def computeFuzzyMembership(k: Int, nClasses: Int): RDD[(Float, BitHashTableEntry)] = {
+    
+    val input = fullNeighbors(k)
+    input.map{ case (orig, neighbors) =>
+      var counter = Array.fill[Float](nClasses)(.0f)      
+      //val labels = neighbors.map(_._2.point.label.toInt).groupBy(identity).mapValues(_.size)
+      neighbors.map{ case (_, neig) => counter(neig.point.label.toInt) += 1 }
+      counter = counter.map(_ / k * .49f)
+      counter(orig.point.label.toInt) += .51f
+      // we got the first two decimals to represent membership
+      orig.membership = counter.map(num => math.floor(num * 100).toByte)
+      (orig.norm, orig)
     }
   }
 
@@ -103,69 +131,30 @@ class fastANNModel(val entries: RDD[(Double, _ <: HashTableEntry[_])],
    * only potential matches, cogrouping the two RDDs, and
    * computing candidate distances in the "normal" fashion.
    */
-  def neighbors(queryPoints: RDD[IDPoint], quantity: Int): RDD[(Long, Array[(Long, Double)])] = {
-
+  def neighborPrediction(queryPoints: RDD[IDPoint], quantity: Int): RDD[(Long, (Double, Double))] = {
+    
+    val queryEntries = fastANNModel
+      .generateHashTables(queryPoints, hashFunctions)
+      .sortByKey(numPartitions = entries.getNumPartitions)
+      
+    // for each partition, search points within corresponding child tree
+    entries.zipPartitions(queryEntries, preservesPartitioning = true) {
+      (itEntries, itQuery) =>
+        val elems = itEntries.toIndexedSeq
+        itQuery.map { q =>
+            val i = elems.search(q)(ordering).insertionPoint
+            val topk = fastNearestSearch(quantity, elems, i - 1, i, i)
+            val pred = topk.map(_._2.point.label)
+                .groupBy(identity).mapValues(_.size)
+                .maxBy(_._2)._1
+            (q._2.id, (pred, q._2.point.label))
+        }        
+    }
   }
 
-  /**
-   * Compute the average selectivity of the points in the
-   * dataset. (See "Modeling LSH for Performance Tuning" in CIKM '08.)
-   */
-  def avgSelectivity(): Double =
-    candidates
-      .flatMap {
-        case candidates => {
-          for (
-            (id1, _) <- candidates.iterator;
-            (id2, _) <- candidates.iterator
-          ) yield (id1, id2)
-        }
-      }
-      .distinct
-      .countByKey()
-      .values
-      .map(_.toDouble / numPoints).reduce(_ + _) / numPoints
-
-  /**
-   * Compute the actual distance between candidate pairs using the supplied distance measure.
-   */
-  private def computeDistances(candidates: RDD[CandidateGroup]): RDD[(Long, (Long, Double))] =
-    candidates
-      .flatMap {
-        case group => {
-          for (
-            (id1, vector1) <- group.iterator;
-            (id2, vector2) <- group.iterator;
-            if id1 < id2
-          ) yield ((id1, id2), distance(vector1.features, vector2.features))
-        }
-      }
-      .reduceByKey((a, b) => a)
-      .flatMap {
-        case ((id1, id2), dist) => Seq((id1, (id2, dist)), (id2, (id1, dist)))
-      }
-
-  /**
-   * Compute the actual distance between candidate pairs
-   * using the supplied distance measure.
-   */
-  private def computeBipartiteDistances(candidates: RDD[(CandidateGroup, CandidateGroup)]): RDD[(Long, (Long, Double))] =
-    candidates
-      .flatMap {
-        case (groupA, groupB) => {
-          for (
-            (id1, vector1) <- groupA.iterator;
-            (id2, vector2) <- groupB.iterator
-          ) yield ((id1, id2), distance(vector1.features, vector2.features))
-        }
-      }
-      .reduceByKey((a, b) => a)
-      .map {
-        case ((id1, id2), dist) => (id1, (id2, dist))
-      }
+  
 
 }
-
 
 object fastANNModel {
 
@@ -196,14 +185,14 @@ object fastANNModel {
   }
 
   def generateHashTables(points: RDD[IDPoint],
-                         hashFunctions: Iterable[_ <: LSHFunction[_]]): RDD[(Double, HashTableEntry[_])] =
+                         hashFunctions: Iterable[_ <: LSHFunction[_]]): RDD[(Float, BitHashTableEntry)] =
     points
       .flatMap{ case (id, vector) =>
         hashFunctions
           .zipWithIndex
           .map{ case (hashFunc: LSHFunction[_], table: Int) => 
             val entry = hashFunc.hashTableEntry(id, table, vector)
-            entry.norm -> entry
+            entry.norm -> entry.asInstanceOf[BitHashTableEntry]
           }
         }
 
