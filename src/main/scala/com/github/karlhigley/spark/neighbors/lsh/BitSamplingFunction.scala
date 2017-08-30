@@ -28,6 +28,7 @@ class BitSamplingFunction(val sampledBits: Array[Int]) extends LSHFunction[BitSi
    * Build a hash table entry for the supplied vector
    */
   def hashTableEntry(id: Long, table: Int, v: LabeledPoint): BitHashTableEntry = {
+    
     BitHashTableEntry(id, table, signature(v), v)
   }
 

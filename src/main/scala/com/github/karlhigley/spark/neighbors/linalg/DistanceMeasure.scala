@@ -4,7 +4,6 @@ import breeze.linalg.norm
 import org.apache.spark.ml.linalg.{SparseVector, Vectors, Vector}
 import org.apache.spark.ml.linalg.LinalgShim
 import com.github.karlhigley.spark.neighbors.lsh.BitSignature
-import com.github.karlhigley.spark.neighbors.lsh.BitSignature
 
 /**
  * This abstract base class provides the interface for
@@ -85,19 +84,6 @@ final object HammingDistance extends DistanceMeasure {
 
 }
 
-final object BitHammingDistance extends DistanceMeasure {
-
-  /**
-   * Compute Hamming distance between two bitsets
-   *
-   */
-  def apply(v1: BitSignature, v2: BitSignature): Double = {
-    (v1.elements.union(v2.elements).size 
-        - v1.elements.intersect(v2.elements).size).toDouble
-  }
-
-}
-
 final object JaccardDistance extends DistanceMeasure {
 
   /**
@@ -113,6 +99,20 @@ final object JaccardDistance extends DistanceMeasure {
     val intersection = indices1.intersect(indices2)
     val union = indices1.union(indices2)
     1.0 - (intersection.size / union.size.toDouble)
+  }
+  
+
+}
+
+final object BitHammingDistance {
+
+  /**
+   * Compute Hamming distance between two bitsets
+   *
+   */
+  def apply(v1: BitSignature, v2: BitSignature): Double = {
+    (v1.elements.union(v2.elements).size 
+        - v1.elements.intersect(v2.elements).size).toDouble
   }
 
 }

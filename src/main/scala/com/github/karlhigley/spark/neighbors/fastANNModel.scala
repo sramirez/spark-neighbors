@@ -36,7 +36,7 @@ class fastANNModel(val entries: RDD[(Float, BitHashTableEntry)],
   import fastANNModel._
 
   val ordering = new Ordering[Tuple2[Float, BitHashTableEntry]]() {
-    override def compare(x: (Float, _), y: (Float, _)): Int = 
+    override def compare(x: (Float, BitHashTableEntry), y: (Float, BitHashTableEntry)): Int = 
         Ordering[Float].compare(x._1, y._1)
     }
   val normMax = entries.max()(ordering)._1
@@ -120,7 +120,7 @@ class fastANNModel(val entries: RDD[(Float, BitHashTableEntry)],
       counter = counter.map(_ / k * .49f)
       counter(orig.point.label.toInt) += .51f
       // we got the first two decimals to represent membership
-      orig.membership = counter.map(num => math.floor(num * 100).toByte)
+      orig.fuzzyMembership = counter.map(num => math.floor(num * 100).toByte)
       (orig.norm, orig)
     }
   }
