@@ -1,82 +1,101 @@
 package com.github.karlhigley.spark.neighbors
 
 import org.apache.spark.SparkContext
-import org.apache.spark.SparkContext._
-import com.github.karlhigley.spark.neighbors.collision.CollisionStrategy
-import com.github.karlhigley.spark.neighbors.linalg.DistanceMeasure
-import com.github.karlhigley.spark.neighbors.lsh.{HashTableEntry, LSHFunction}
-import org.apache.spark.mllib.linalg.{Vector => MLLibVector}
-import org.apache.spark.mllib.rdd.MLPairRDDFunctions._
+
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.mllib.linalg.Vectors
-import com.github.karlhigley.spark.neighbors.ANNModel.IDPoint
-import org.apache.hadoop.mapreduce.Partitioner
-import com.github.karlhigley.spark.neighbors.lsh.SignRandomProjectionFunction
 import org.apache.spark.ml.feature.LabeledPoint
+
+import org.apache.hadoop.mapreduce.Partitioner
+
+import com.github.karlhigley.spark.neighbors.collision.CollisionStrategy
+import com.github.karlhigley.spark.neighbors.linalg.DistanceMeasure
+import com.github.karlhigley.spark.neighbors.lsh.{HashTableEntry, LSHFunction}
 import com.github.karlhigley.spark.neighbors.lsh.BitSignature
+import com.github.karlhigley.spark.neighbors.lsh.{BitHashTableEntry => BHTE}
 import com.github.karlhigley.spark.neighbors.linalg.BitHammingDistance
-import com.github.karlhigley.spark.neighbors.lsh.BitHashTableEntry
-import com.github.karlhigley.spark.neighbors.util.BoundedPriorityQueue
+import com.github.karlhigley.spark.neighbors.util.{BoundedPriorityQueue => BPQ }
+import com.github.karlhigley.spark.neighbors.ANNModel.IDPoint
+
 import scala.collection.Searching._
 
 /**
  * Model containing hash tables produced by computing signatures
  * for each supplied vector.
  */
-class fastANNModel(val entries: RDD[(Float, BitHashTableEntry)],
+class fastANNModel(var entries: RDD[(Float, BHTE)],
                val hashFunctions: Iterable[_ <: LSHFunction[_]],
                val collisionStrategy: CollisionStrategy,
                val distance: DistanceMeasure,
                val numPoints: Int,
                val signatureLength: Int,               
                val nClasses: Int,
+               val persistenceLevel: StorageLevel,
                val thLength: Int = 5,
                val thDistance: Float = .9f) extends Serializable {
 
   import fastANNModel._
 
-  val ordering = new Ordering[Tuple2[Float, BitHashTableEntry]]() {
-    override def compare(x: (Float, BitHashTableEntry), y: (Float, BitHashTableEntry)): Int = 
+  val ordering = new Ordering[Tuple2[Float, BHTE]]() {
+    override def compare(x: (Float, BHTE), y: (Float, BHTE)): Int = 
         Ordering[Float].compare(x._1, y._1)
   }
+  
+  /* Variables needed for further estimation of distance */
   val normMax = entries.max()(ordering)._1
   val normMin = entries.min()(ordering)._1
   
   val r = (normMax - normMin) / thLength
   val tau = signatureLength * math.acos(thDistance).toFloat
-  val factor = math.Pi / signatureLength
+  val weightHamming = math.Pi / signatureLength
   
+  /* It indicates if fuzzy memberships are computed, and then fuzzy prediciton can be used. */
+  var fuzzy = false  
   
     
-  private def approxEuclidDistance(a: BitHashTableEntry, 
-      b: BitHashTableEntry): Option[(Float, BitHashTableEntry)] = {
+  /** 
+   *  Function that computes approximate euclidean distance from two elements
+   *  represented by two bit encoding vectors. Hamming distance between these two 
+   *  bit vectors is used to approximate the euclidean one.
+   *  
+   *  Vectors with a hamming distance far from tau threshold are omitted.
+   */
+  private def approxEuclidDistance(a: BHTE, b: BHTE): Option[(Float, BHTE)] = {
     
     val hamdist = BitHammingDistance.apply(a.signature, b.signature)
     if(hamdist <= tau){
       val ni = a.norm; val nj = b.norm
       val eudist = math.pow(ni, 2) + math.pow(nj, 2) -
-        2 * ni * nj * math.cos(factor * hamdist)                
+        2 * ni * nj * math.cos(weightHamming * hamdist)                
       Some(eudist.toFloat -> b)
     }
     None
   }
       
+  /**
+   * Fast search algorithm following the paper (2013, Marukatat).
+   * This function computes approximate euclidean distance from two elements
+   * represented by two bit encoding vectors, skipping those vectors whose 
+   * distance is far from the radius limit (leftIndex, rightIndex) and the encoder length.
+   * 
+   * Pre-requisites: elems must be sorted.
+   */
   private def fastNearestSearch(quantity: Int, 
-      elems: Seq[(Float, BitHashTableEntry)], // must be sorted
+      elems: Seq[(Float, BHTE)], // must be sorted
       leftIndex: Int, 
       rightIndex: Int,
-      index: Int): BoundedPriorityQueue[(Float, BitHashTableEntry)] = {
+      index: Int): BPQ[(Float, BHTE)] = {
     
     assert(rightIndex >= index || leftIndex <= index)
     
     import scala.util.control.Breaks._
     /* k Nearest neighbors ordered by euclidean distance */
-    var topk = new BoundedPriorityQueue[(Float, BitHashTableEntry)](quantity)(ordering)
+    var topk = new BPQ[(Float, BHTE)](quantity)(ordering)
     
     // traverse from here to left (till r radius limit)    
     breakable{ 
-      for(j <- leftIndex until 0){
+      for(j <- leftIndex to 0 by -1){
         if(elems(index)._1 - elems(j)._1 > r)
           break
         approxEuclidDistance(elems(index)._2, elems(j)._2) match {
@@ -102,11 +121,11 @@ class fastANNModel(val entries: RDD[(Float, BitHashTableEntry)],
   } 
 
   /**
-   * Identify pairs of nearest neighbors by applying a
-   * collision strategy to the hash tables and then computing
-   * the actual distance between candidate pairs.
+   * Apply fast nearest neighbor search to each element in entries. 
+   * Searches are applied locally (in each data partition). Some errors
+   * in searches are assumed in the partition limits.
    */
-  private def fullNeighbors(quantity: Int): RDD[(BitHashTableEntry, Seq[(Float, BitHashTableEntry)])] = {
+  private def fullNeighbors(quantity: Int): RDD[(BHTE, Seq[(Float, BHTE)])] = {
     
     entries.mapPartitions{ iterator => 
         val elems = iterator.toSeq
@@ -117,11 +136,18 @@ class fastANNModel(val entries: RDD[(Float, BitHashTableEntry)],
         output.iterator
     }
   }
-  
-  def computeFuzzyMembership(k: Int, nClasses: Int): RDD[(Float, BitHashTableEntry)] = {
+  /**
+   * Compute fuzzy membership values for all elements in the case-base.
+   * It relies on fullNeighbors function to compute distance between the neighbors.
+   * It followed the description of fuzzy kNN stated in (derrac, 2014).
+   * 
+   * Retrieved entries will replace old hash entries. They are sorted and persisted 
+   * for further searches.
+   */
+  private def computeFuzzyMembership(k: Int, nClasses: Int) {
     
     val input = fullNeighbors(k)
-    input.map{ case (orig, neighbors) =>
+    entries = input.map{ case (orig, neighbors) =>
       var counter = Array.fill[Float](nClasses)(.0f)
       neighbors.map{ case (_, neig) => counter(neig.point.label.toInt) += 1 }
       counter = counter.map(_ / k * .49f)
@@ -129,18 +155,86 @@ class fastANNModel(val entries: RDD[(Float, BitHashTableEntry)],
       // we get the first two decimals to represent membership
       orig.fuzzyMembership = counter.map(num => math.floor(num * 100).toByte)
       (orig.norm, orig)
+    }.sortByKey().persist(persistenceLevel)
+    
+    fuzzy = true
+    
+  }
+    
+  /**
+   * Compute the fuzzy prediction for a given instance following the standard fuzzy knn rules.
+   * 
+   */
+  private def fuzzyPrediction(topNeighbors: BPQ[(Float, BHTE)], m: Int): Int = {
+      
+      var fuzzydist = topNeighbors.map{ case (dist, _) => (1 / math.pow(dist, 2 / (m - 1))).toFloat }.toSeq
+      val totald = fuzzydist.sum
+      fuzzydist = fuzzydist.map(_ / totald) // normalize distance
+      val fuzzymemb = topNeighbors.map(_._2).toSeq
+          
+      val count = Array.fill[Float](nClasses)(0)
+      (0 until nClasses).map{ cls => 
+       (0 until topNeighbors.size).map{ i =>
+         // memberships are saved in byte format representing the two first decimals (e.g.: 0.49)
+         count(cls) += fuzzymemb(i).fuzzyMembership(cls) / 100.0f * fuzzydist(i)
+       }
+      }
+      
+      /* Compute the maximum fuzzy contribution */
+      var pred = 0
+      var max = Float.MinValue
+      for(i <- 0 until count.size) {
+        if(count(i) > max){
+          pred = i
+          max = count(i)
+        }                    
+      }
+      pred
+  }
+  
+  /**
+   * Wrapper function to retrieve the nearest neighbors for all elements already 
+   * stored in the case-base. It follows the same scheme proposed in the ANNmodel class.
+   */
+  def neighbors(quantity: Int): RDD[(Long, Array[(Long, Double)])] = {
+    fullNeighbors(quantity).map{ case (o, seq) => 
+      o.id -> seq.map{ case(dist, e) => e.id -> dist.toDouble}.toArray
+    }
+  }    
+   
+  /**
+   * Wrapper function to retrieve the nearest neighbors to a bunch of new points.
+   * It follows the same scheme proposed in the ANNmodel class.
+   */
+  def neighbors(queryPoints: RDD[IDPoint], quantity: Int): RDD[(Long, Array[(Long, Double)])] = {
+    val queryEntries = fastANNModel
+      .generateHashTables(queryPoints, hashFunctions)
+      .sortByKey(numPartitions = entries.getNumPartitions)
+      
+    // for each partition, search points within corresponding child tree
+    entries.zipPartitions(queryEntries, preservesPartitioning = true) {
+      (itEntries, itQuery) =>
+        val elems = itEntries.toIndexedSeq
+        itQuery.map { q =>
+            val i = elems.search(q)(ordering).insertionPoint
+            val topNeighbors = fastNearestSearch(quantity, elems, i - 1, i, i)
+              .map{ case(dist, e) => (e.id, dist.toDouble) }.toArray
+            q._2.id -> topNeighbors
+        }
     }
   }
 
   /**
-   * Identify the nearest neighbors of a collection of new points
-   * by computing their signatures, filtering the hash tables to
-   * only potential matches, cogrouping the two RDDs, and
-   * computing candidate distances in the "normal" fashion.
+   * Compute kNN prediction in two modes: majority crisp and fuzzy voting.
+   * Query points are hashed and sorted by norm. Then, old and query points are
+   * zipped together by partitions, and searches are performed. 
    */
-  def neighborPrediction(queryPoints: RDD[IDPoint], 
+  def predict(queryPoints: RDD[IDPoint], 
       quantity: Int, 
       mFuzzy: Option[Int] = Some(2)): RDD[(Long, (Double, Double))] = {
+    
+    /* Fuzzy memberships are pre-computed. If kFuzzy was not specified, fuzzy prediction is not valid. */
+    assert(mFuzzy.isDefined && fuzzy)
     
     val queryEntries = fastANNModel
       .generateHashTables(queryPoints, hashFunctions)
@@ -152,46 +246,22 @@ class fastANNModel(val entries: RDD[(Float, BitHashTableEntry)],
         val elems = itEntries.toIndexedSeq
         itQuery.map { q =>
             val i = elems.search(q)(ordering).insertionPoint
-            val topk = fastNearestSearch(quantity, elems, i - 1, i, i)
+            val topNeighbors = fastNearestSearch(quantity, elems, i - 1, i, i)
             val actual = q._2.point.label
-            mFuzzy match {
-              
+            mFuzzy match {              
               case Some(m) =>
-                var fuzzydist = topk.map{ case (dist, _) => (1 / math.pow(dist, 2 / (m - 1))).toFloat }.toSeq
-                val totald = fuzzydist.sum
-                fuzzydist = fuzzydist.map(_ / totald)
-                val fuzzymemb = topk.map(_._2).toSeq
-                
-                val count = Array.fill[Float](nClasses)(0)
-                (0 until nClasses).map{ cls => 
-                 (0 until topk.size).map{ i =>
-                   count(cls) += fuzzymemb(i).fuzzyMembership(cls) * fuzzydist(i)
-                 }
-                }
-                
-                /** Compute the maximum fuzzy contribution **/
-                var pred = 0
-                var max = Float.MinValue
-                for(i <- 0 until count.size) {
-                  if(count(i) > max){
-                    pred = i
-                    max = count(i)
-                  }                    
-                }
-                
+                val pred = fuzzyPrediction(topNeighbors, m)
                 (q._2.id, (pred, actual))
               
               case None =>
-                val pred = topk.map(_._2.point.label)
+                val pred = topNeighbors.map(_._2.point.label)
                   .groupBy(identity).mapValues(_.size)
                   .maxBy(_._2)._1
                 (q._2.id, (pred, actual))
             }
         }        
     }
-  }
-
-  
+  }  
 
 }
 
@@ -208,32 +278,38 @@ object fastANNModel {
             measure: DistanceMeasure,
             signatureLength: Int,
             nClasses: Int,
-            persistenceLevel: StorageLevel): fastANNModel = {
+            persistenceLevel: StorageLevel,
+            kFuzzy: Int = 0): fastANNModel = {
 
     val hashTables = generateHashTables(points, hashFunctions).sortByKey()
-    
     hashTables.persist(persistenceLevel)
 
-    new fastANNModel(
+    val model = new fastANNModel(
       hashTables,
       hashFunctions,
       collisionStrategy,
       measure,
       points.count.toInt,
       signatureLength,
-      nClasses)
+      nClasses,
+      persistenceLevel)
+    
+    if(kFuzzy > 0) 
+      model.computeFuzzyMembership(kFuzzy, nClasses)
+      
+    model
 
   }
 
   def generateHashTables(points: RDD[IDPoint],
-                         hashFunctions: Iterable[_ <: LSHFunction[_]]): RDD[(Float, BitHashTableEntry)] =
+                         hashFunctions: Iterable[_ <: LSHFunction[_]]): RDD[(Float, BHTE)] =
     points
       .flatMap{ case (id, vector) =>
         hashFunctions
           .zipWithIndex
           .map{ case (hashFunc: LSHFunction[_], table: Int) => 
             val entry = hashFunc.hashTableEntry(id, table, vector)
-            entry.norm -> entry.asInstanceOf[BitHashTableEntry]
+            entry.norm -> entry.asInstanceOf[BHTE]
           }
         }
 

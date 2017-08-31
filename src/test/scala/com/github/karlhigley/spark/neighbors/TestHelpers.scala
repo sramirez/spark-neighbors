@@ -1,10 +1,15 @@
 package com.github.karlhigley.spark.neighbors
 
 import scala.util.Random
-
 import org.apache.spark.ml.linalg.{ Vector => MLLibVector, SparseVector }
+import org.apache.spark.ml.feature.LabeledPoint
 
 object TestHelpers {
+  
+  def generateRandomLabeledPoint(quantity: Int, dimensions: Int, density: Double, nClasses: Int) = {
+    val vectors = generateRandomPoints(quantity, dimensions, density)
+    vectors.map{v => new LabeledPoint(Random.nextInt(nClasses), v)}
+  }
 
   def generateRandomPoints(quantity: Int, dimensions: Int, density: Double) = {
     val numElements = math.floor(dimensions * density).toInt
