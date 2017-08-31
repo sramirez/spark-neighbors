@@ -33,9 +33,11 @@ sealed abstract class HashTableEntry[+S <: Signature[_]] {
   val table: Int
   val signature: S
   val point: LabeledPoint
+  var fuzzyMembership: Array[Byte] = new Array[Byte](1)
 
   def sigElements: Array[Int]
   lazy val norm: Float = Vectors.norm(point.features, 1).toFloat
+  
 
 }
 
@@ -46,7 +48,7 @@ final case class BitHashTableEntry(id: Long,
 
   def sigElements: Array[Int] = signature.elements.toArray
   lazy val size: Int = signature.elements.size
-  var fuzzyMembership: Array[Byte] = new Array[Byte](1)
+  
 
 }
 

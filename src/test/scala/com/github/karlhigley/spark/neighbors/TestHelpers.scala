@@ -2,7 +2,7 @@ package com.github.karlhigley.spark.neighbors
 
 import scala.util.Random
 
-import org.apache.spark.mllib.linalg.{ Vector => MLLibVector, SparseVector }
+import org.apache.spark.ml.linalg.{ Vector => MLLibVector, SparseVector }
 
 object TestHelpers {
 

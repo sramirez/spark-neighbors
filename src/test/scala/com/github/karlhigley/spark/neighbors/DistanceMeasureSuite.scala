@@ -3,7 +3,7 @@ package com.github.karlhigley.spark.neighbors
 import org.scalatest.FunSuite
 
 import org.apache.spark.rdd.RDD
-import org.apache.spark.mllib.linalg.{DenseVector, SparseVector}
+import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 
 import com.github.karlhigley.spark.neighbors.linalg._
 

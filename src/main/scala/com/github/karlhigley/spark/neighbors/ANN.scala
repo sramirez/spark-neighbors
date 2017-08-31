@@ -5,7 +5,7 @@ import com.github.karlhigley.spark.neighbors.collision.{BandingCollisionStrategy
 import com.github.karlhigley.spark.neighbors.linalg._
 import com.github.karlhigley.spark.neighbors.lsh.ScalarRandomProjectionFunction.{generateFractional, generateL1, generateL2}
 import com.github.karlhigley.spark.neighbors.lsh._
-import org.apache.spark.mllib.linalg.{Vector => MLLibVector}
+import org.apache.spark.ml.linalg.{Vector => MLLibVector}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.storage.StorageLevel.MEMORY_AND_DISK
@@ -240,6 +240,7 @@ class ANN private (
    */
   def fastANNtrain(points: RDD[IDPoint],
             thDistance: Float = .9f,
+            nClasses: Int,
             persistenceLevel: StorageLevel = MEMORY_AND_DISK): fastANNModel = {
 
     val random = new JavaRandom(randomSeed)
@@ -254,6 +255,7 @@ class ANN private (
       collisionStrategy = SimpleCollisionStrategy,
       measure = CosineDistance,
       signatureLength,
+      nClasses,
       persistenceLevel
     )
   }

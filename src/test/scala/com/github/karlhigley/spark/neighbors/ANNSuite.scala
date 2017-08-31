@@ -1,11 +1,11 @@
 package com.github.karlhigley.spark.neighbors
 
 import org.scalatest.FunSuite
-
 import org.apache.spark.rdd.RDD
-import org.apache.spark.mllib.linalg.{ Vector => MLLibVector }
-
+import org.apache.spark.ml.linalg.{ Vector => MLLibVector }
 import com.github.karlhigley.spark.neighbors.lsh.HashTableEntry
+import org.apache.spark.ml.feature.LabeledPoint
+import com.github.karlhigley.spark.neighbors.ANNModel.IDPoint
 
 class ANNSuite extends FunSuite with TestSparkContext {
   import ANNSuite._
@@ -14,14 +14,14 @@ class ANNSuite extends FunSuite with TestSparkContext {
   val dimensions = 100
   val density = 0.5
 
-  var sparsePoints: RDD[(Long, MLLibVector)] = _
-  var densePoints:  RDD[(Long, MLLibVector)] = _
+  var sparsePoints: RDD[IDPoint] = _
+  var densePoints:  RDD[IDPoint] = _
 
   override def beforeAll() {
     super.beforeAll()
     val localPoints = TestHelpers.generateRandomPoints(numPoints, dimensions, density)
-    sparsePoints = sc.parallelize(localPoints).zipWithIndex.map(_.swap)
-    densePoints = sparsePoints.mapValues(_.toDense)
+    sparsePoints = sc.parallelize(localPoints).zipWithIndex.map{ case(v, id) => (id, new LabeledPoint(-1, v))}
+    densePoints = sparsePoints.mapValues(slp => new LabeledPoint(slp.label, slp.features.toDense))
   }
 
   test("compute hamming nearest neighbors as a batch") {
@@ -147,7 +147,7 @@ class ANNSuite extends FunSuite with TestSparkContext {
   test("with multiple hash tables neighbors don't contain duplicates") {
     val localPoints = TestHelpers.generateRandomPoints(numPoints, dimensions, density)
     val withDuplicates = localPoints ++ localPoints
-    val points = sc.parallelize(withDuplicates).zipWithIndex.map(_.swap)
+    val points = sc.parallelize(withDuplicates).zipWithIndex.map{ case(v, id) => (id, new LabeledPoint(-1, v))}
 
     val ann =
       new ANN(dimensions, "hamming")

@@ -1,7 +1,9 @@
 package com.github.karlhigley.spark.neighbors
 
-import org.apache.spark.mllib.linalg.{ Vector => MLLibVector }
+import org.apache.spark.ml.linalg.Vector
 import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfter, FunSuite }
+import com.github.karlhigley.spark.neighbors.ANNModel.IDPoint
+import org.apache.spark.ml.feature.LabeledPoint
 
 /**
  * @author Thomas Moerman
@@ -12,11 +14,11 @@ class SimpleANNModelSuite extends FunSuite with BeforeAndAfterAll {
   val dimensions = 100
   val density = 0.5
 
-  var points: Iterable[(Long, MLLibVector)] = _
+  var points: Iterable[IDPoint] = _
 
   override def beforeAll() {
     val localPoints = TestHelpers.generateRandomPoints(numPoints, dimensions, density)
-    points = localPoints.zipWithIndex.map { case (v, idx) => (idx.toLong, v) }
+    points = localPoints.zipWithIndex.map { case (v, idx) => (idx.toLong, new LabeledPoint(-1, v)) }
   }
 
   test("average selectivity is between zero and one") {
