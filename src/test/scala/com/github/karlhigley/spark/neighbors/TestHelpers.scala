@@ -34,7 +34,7 @@ object TestHelpers {
         i += 1
       }
     }
-    indices
+    indices.sorted
   }
 
   def generateValues(quantity: Int) = {

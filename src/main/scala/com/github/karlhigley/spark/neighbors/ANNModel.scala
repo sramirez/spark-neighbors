@@ -45,6 +45,8 @@ class ANNModel(val hashTables: RDD[_ <: HashTableEntry[_]],
 
     val queryHashTables = ANNModel.generateHashTables(queryPoints, hashFunctions)
     val queryEntries = collisionStrategy.apply(queryHashTables)
+    
+    val tmp2 = queryEntries.collect()
 
     val candidateGroups =
       queryEntries.cogroup(modelEntries)
@@ -52,6 +54,7 @@ class ANNModel(val hashTables: RDD[_ <: HashTableEntry[_]],
 
     val neighbors = computeBipartiteDistances(candidateGroups)
 
+    val tmp = neighbors.take(10)
     neighbors.topByKey(quantity)(ANNModel.ordering)
   }
 
@@ -97,13 +100,14 @@ class ANNModel(val hashTables: RDD[_ <: HashTableEntry[_]],
    * Compute the actual distance between candidate pairs
    * using the supplied distance measure.
    */
-  private def computeBipartiteDistances(candidates: RDD[(CandidateGroup, CandidateGroup)]): RDD[(Long, (Long, Double))] =
+  private def computeBipartiteDistances(candidates: RDD[(CandidateGroup, CandidateGroup)]): RDD[(Long, (Long, Double))] = {
     candidates
       .flatMap {
         case (groupA, groupB) => {
           for (
             (id1, vector1) <- groupA.iterator;
             (id2, vector2) <- groupB.iterator
+            if id1 != id2
           ) yield ((id1, id2), distance(vector1.features, vector2.features))
         }
       }
@@ -111,6 +115,7 @@ class ANNModel(val hashTables: RDD[_ <: HashTableEntry[_]],
       .map {
         case ((id1, id2), dist) => (id1, (id2, dist))
       }
+  }
 
 }
 

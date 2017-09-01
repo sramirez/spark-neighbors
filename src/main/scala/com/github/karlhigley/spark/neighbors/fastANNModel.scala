@@ -1,14 +1,11 @@
 package com.github.karlhigley.spark.neighbors
 
 import org.apache.spark.SparkContext
-
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.ml.feature.LabeledPoint
-
 import org.apache.hadoop.mapreduce.Partitioner
-
 import com.github.karlhigley.spark.neighbors.collision.CollisionStrategy
 import com.github.karlhigley.spark.neighbors.linalg.DistanceMeasure
 import com.github.karlhigley.spark.neighbors.lsh.{HashTableEntry, LSHFunction}
@@ -17,8 +14,9 @@ import com.github.karlhigley.spark.neighbors.lsh.{BitHashTableEntry => BHTE}
 import com.github.karlhigley.spark.neighbors.linalg.BitHammingDistance
 import com.github.karlhigley.spark.neighbors.util.{BoundedPriorityQueue => BPQ }
 import com.github.karlhigley.spark.neighbors.ANNModel.IDPoint
-
 import scala.collection.Searching._
+import com.github.karlhigley.spark.neighbors.lsh.BitHashTableEntry
+import com.github.karlhigley.spark.neighbors.linalg.EuclideanDistance
 
 /**
  * Model containing hash tables produced by computing signatures
@@ -37,18 +35,16 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
 
   import fastANNModel._
 
-  val ordering = new Ordering[Tuple2[Float, BHTE]]() {
-    override def compare(x: (Float, BHTE), y: (Float, BHTE)): Int = 
-        Ordering[Float].compare(x._1, y._1)
-  }
+  
+  val ordering = Ordering[Float].on[(Float, BHTE)](_._1).reverse
   
   /* Variables needed for further estimation of distance */
   val normMax = entries.max()(ordering)._1
   val normMin = entries.min()(ordering)._1
   
   val r = (normMax - normMin) / thLength
-  val tau = signatureLength * math.acos(thDistance).toFloat
-  val weightHamming = math.Pi / signatureLength
+  val tau = signatureLength * math.acos(math.toRadians(thDistance)).toFloat
+  val weightHamming = 180.0f / signatureLength
   
   /* It indicates if fuzzy memberships are computed, and then fuzzy prediciton can be used. */
   var fuzzy = false  
@@ -66,11 +62,13 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
     val hamdist = BitHammingDistance.apply(a.signature, b.signature)
     if(hamdist <= tau){
       val ni = a.norm; val nj = b.norm
+      val realDistance = EuclideanDistance.apply(a.point.features, b.point.features)
+      val angle = weightHamming * hamdist
       val eudist = math.pow(ni, 2) + math.pow(nj, 2) -
-        2 * ni * nj * math.cos(weightHamming * hamdist)                
-      Some(eudist.toFloat -> b)
+        2 * ni * nj * math.cos(math.toRadians(weightHamming * hamdist))                
+      return Some(eudist.toFloat -> b)
     }
-    None
+    return None
   }
       
   /**
@@ -85,9 +83,9 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
       elems: Seq[(Float, BHTE)], // must be sorted
       leftIndex: Int, 
       rightIndex: Int,
-      index: Int): BPQ[(Float, BHTE)] = {
+      // Norm, HashEntry
+      q: (Float, BitHashTableEntry)): BPQ[(Float, BHTE)] = {
     
-    assert(rightIndex >= index || leftIndex <= index)
     
     import scala.util.control.Breaks._
     /* k Nearest neighbors ordered by euclidean distance */
@@ -96,9 +94,9 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
     // traverse from here to left (till r radius limit)    
     breakable{ 
       for(j <- leftIndex to 0 by -1){
-        if(elems(index)._1 - elems(j)._1 > r)
+        if(q._1 - elems(j)._1 > r)
           break
-        approxEuclidDistance(elems(index)._2, elems(j)._2) match {
+        approxEuclidDistance(q._2, elems(j)._2) match {
           case Some(distNeig) => topk += distNeig
           case None => /* Skip this example. */
         }
@@ -108,9 +106,9 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
     // traverse from here to right
     breakable{ 
       for(j <- rightIndex until elems.size){
-        if(elems(j)._1 - elems(index)._1 > r)
-          break
-        approxEuclidDistance(elems(index)._2, elems(j)._2) match {
+        if(elems(j)._1 - q._1 > r)
+          break  
+        approxEuclidDistance(q._2, elems(j)._2) match {
           case Some(distNeig) => topk += distNeig
           case None => /* Skip this example. */
         }
@@ -130,12 +128,13 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
     entries.mapPartitions{ iterator => 
         val elems = iterator.toSeq
         val output = (0 until elems.size).map{ i =>
-          val topk = fastNearestSearch(quantity, elems, i - 1, i + 1, i)
+          val topk = fastNearestSearch(quantity, elems, i - 1, i + 1, elems(i))
           (elems(i)._2, topk.toSeq)
         }
         output.iterator
     }
   }
+  
   /**
    * Compute fuzzy membership values for all elements in the case-base.
    * It relies on fullNeighbors function to compute distance between the neighbors.
@@ -211,13 +210,14 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
       .generateHashTables(queryPoints, hashFunctions)
       .sortByKey(numPartitions = entries.getNumPartitions)
       
+      
     // for each partition, search points within corresponding child tree
     entries.zipPartitions(queryEntries, preservesPartitioning = true) {
       (itEntries, itQuery) =>
         val elems = itEntries.toIndexedSeq
         itQuery.map { q =>
             val i = elems.search(q)(ordering).insertionPoint
-            val topNeighbors = fastNearestSearch(quantity, elems, i - 1, i, i)
+            val topNeighbors = fastNearestSearch(quantity, elems, i - 1, i, q)
               .map{ case(dist, e) => (e.id, dist.toDouble) }.toArray
             q._2.id -> topNeighbors
         }
@@ -246,7 +246,7 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
         val elems = itEntries.toIndexedSeq
         itQuery.map { q =>
             val i = elems.search(q)(ordering).insertionPoint
-            val topNeighbors = fastNearestSearch(quantity, elems, i - 1, i, i)
+            val topNeighbors = fastNearestSearch(quantity, elems, i - 1, i, q)
             val actual = q._2.point.label
             mFuzzy match {              
               case Some(m) =>

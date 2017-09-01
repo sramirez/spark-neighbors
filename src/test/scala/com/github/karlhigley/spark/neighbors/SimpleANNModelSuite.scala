@@ -5,20 +5,26 @@ import org.scalatest.{ BeforeAndAfterAll, BeforeAndAfter, FunSuite }
 import com.github.karlhigley.spark.neighbors.ANNModel.IDPoint
 import org.apache.spark.ml.feature.LabeledPoint
 
+import org.junit.runner.RunWith
+import org.scalatest.junit.JUnitRunner
+
+
 /**
  * @author Thomas Moerman
  */
+@RunWith(classOf[JUnitRunner])
 class SimpleANNModelSuite extends FunSuite with BeforeAndAfterAll {
 
   val numPoints = 1000
   val dimensions = 100
   val density = 0.5
-
+  val nClasses = 3
+  
   var points: Iterable[IDPoint] = _
 
   override def beforeAll() {
-    val localPoints = TestHelpers.generateRandomPoints(numPoints, dimensions, density)
-    points = localPoints.zipWithIndex.map { case (v, idx) => (idx.toLong, new LabeledPoint(-1, v)) }
+    val localPoints = TestHelpers.generateRandomLabeledPoint(numPoints, dimensions, density, nClasses)
+    points = localPoints.zipWithIndex.map{ case (lp, i) => i.toLong -> lp}
   }
 
   test("average selectivity is between zero and one") {

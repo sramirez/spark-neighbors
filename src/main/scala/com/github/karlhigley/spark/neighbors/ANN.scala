@@ -227,38 +227,6 @@ class ANN private (
       persistenceLevel
     )
   }
-  
-  /**
-   * Build a fast ANN model using the given dataset.
-   * Improvements in searches are based on (2013, Marukatat).
-   * Instances are pre-indexed by norm, euclidean distance is
-   * approximated by using the hamming distance of bit signatures.
-   *
-   * @param points    RDD of vectors paired with IDs.
-   *                   IDs must be unique and >= 0.
-   * @return fastANNModel containing computed hash tables
-   */
-  def fastANNtrain(points: RDD[IDPoint],
-            thDistance: Float = .9f,
-            nClasses: Int,
-            persistenceLevel: StorageLevel = MEMORY_AND_DISK): fastANNModel = {
-
-    val random = new JavaRandom(randomSeed)
-
-    /** Only one table to reduce the complexity and hardness of computations */
-    val hashFunctions: Seq[LSHFunction[_]] = Seq(
-      SignRandomProjectionFunction.generate(origDimension, signatureLength, random))
-
-    fastANNModel.train(
-      points,
-      hashFunctions,
-      collisionStrategy = SimpleCollisionStrategy,
-      measure = CosineDistance,
-      signatureLength,
-      nClasses,
-      persistenceLevel
-    )
-  }
 
   def train(points: Iterable[IDPoint]): SimpleANNModel = {
 

@@ -108,6 +108,7 @@ class SimpleANNModel(val hashTables: Iterable[_ <: HashTableEntry[_]],
           for {
             (id1, vector1) <- groupA.iterator
             (id2, vector2) <- groupB.iterator
+            if id1 != id2
           } yield ((id1, id2), distance(vector1.features, vector2.features))
       }
       .foldLeft(Map[(Long, Long), Double]()) {
