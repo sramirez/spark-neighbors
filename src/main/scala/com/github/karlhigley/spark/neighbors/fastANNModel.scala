@@ -39,11 +39,12 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
   val ordering = Ordering[Float].on[(Float, BHTE)](_._1).reverse
   
   /* Variables needed for further estimation of distance */
-  val normMax = entries.max()(ordering)._1
-  val normMin = entries.min()(ordering)._1
+  val normMax = entries.max()(ordering.reverse)._1
+  val normMin = entries.min()(ordering.reverse)._1
   
   val r = (normMax - normMin) / thLength
-  val tau = signatureLength * math.acos(math.toRadians(thDistance)).toFloat
+  val tau = signatureLength * math.acos(thDistance).toFloat
+  // pi radians / |m|
   val weightHamming = 180.0f / signatureLength
   
   /* It indicates if fuzzy memberships are computed, and then fuzzy prediciton can be used. */
@@ -57,15 +58,15 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
    *  
    *  Vectors with a hamming distance far from tau threshold are omitted.
    */
-  private def approxEuclidDistance(a: BHTE, b: BHTE): Option[(Float, BHTE)] = {
+  private[neighbors] def approxEuclidDistance(a: BHTE, b: BHTE): Option[(Float, BHTE)] = {
     
     val hamdist = BitHammingDistance.apply(a.signature, b.signature)
     if(hamdist <= tau){
       val ni = a.norm; val nj = b.norm
       val realDistance = EuclideanDistance.apply(a.point.features, b.point.features)
-      val angle = weightHamming * hamdist
-      val eudist = math.pow(ni, 2) + math.pow(nj, 2) -
-        2 * ni * nj * math.cos(math.toRadians(weightHamming * hamdist))                
+      val eudist = math.sqrt(math.pow(ni, 2) + math.pow(nj, 2) -
+        2 * ni * nj * math.cos(math.toRadians(weightHamming * hamdist)))    
+      val approxError = (realDistance - eudist) / realDistance
       return Some(eudist.toFloat -> b)
     }
     return None
@@ -123,7 +124,7 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
    * Searches are applied locally (in each data partition). Some errors
    * in searches are assumed in the partition limits.
    */
-  private def fullNeighbors(quantity: Int): RDD[(BHTE, Seq[(Float, BHTE)])] = {
+  private[neighbors] def fullNeighbors(quantity: Int): RDD[(BHTE, Seq[(Float, BHTE)])] = {
     
     entries.mapPartitions{ iterator => 
         val elems = iterator.toSeq

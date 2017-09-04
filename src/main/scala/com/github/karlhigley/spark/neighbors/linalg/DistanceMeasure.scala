@@ -4,6 +4,7 @@ import breeze.linalg.norm
 import org.apache.spark.ml.linalg.{SparseVector, Vectors, Vector}
 import org.apache.spark.ml.linalg.LinalgShim
 import com.github.karlhigley.spark.neighbors.lsh.BitSignature
+import breeze.linalg.functions.euclideanDistance
 
 /**
  * This abstract base class provides the interface for
@@ -42,7 +43,7 @@ final object EuclideanDistance extends DistanceMeasure {
   def apply(v1: Vector, v2: Vector): Double = {
     val b1 = LinalgShim.toBreeze(v1)
     val b2 = LinalgShim.toBreeze(v2)
-    norm(b1 - b2, 2.0)
+    euclideanDistance(b1, b2)
   }
 
 }

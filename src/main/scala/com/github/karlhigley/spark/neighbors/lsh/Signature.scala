@@ -36,7 +36,7 @@ sealed abstract class HashTableEntry[+S <: Signature[_]] {
   var fuzzyMembership: Array[Byte] = new Array[Byte](1)
 
   def sigElements: Array[Int]
-  lazy val norm: Float = Vectors.norm(point.features, 1).toFloat
+  lazy val norm: Float = Vectors.norm(point.features, 2).toFloat
   
 
 }

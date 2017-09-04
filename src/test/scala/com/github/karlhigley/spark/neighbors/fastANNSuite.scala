@@ -40,6 +40,16 @@ class fastANNSuite extends FunSuite with TestSparkContext {
     
     val fastModel = fastAnn.fastANNtrain(sparsePoints, nClasses)
     val queryPoints = sparsePoints.sample(withReplacement = false, fraction = 0.1)
+    val completeNN = fastModel.fullNeighbors(k).flatMap{ case (entry, neigh) =>
+      neigh.map{ case (realDistance, e) =>
+        val estDistance = fastModel.approxEuclidDistance(entry, e) match {
+          case Some(e1) => e1._1
+          case None => .0f
+        }
+        (realDistance - estDistance) / realDistance
+      }  
+    }.cache()
+    val averageError = completeNN.sum() / completeNN.count()
     val fastnn = fastModel.neighbors(queryPoints, k).collectAsMap().toMap
     
     /*val simpleAnn =
@@ -128,6 +138,7 @@ object fastANNSuite {
     val avgNumberNeig = exactNeighbors.map(_._2.size).sum / exactNeighbors.size
     println("Average number of neighbors: " + avgNumberNeig)
     val ndistinct = aproxNeighbors.map{ case(key, neig1) =>
+      val asd = exactNeighbors.getOrElse(key, Array.empty[(Long, Double)])
       val s2 = exactNeighbors.getOrElse(key, Array.empty[(Long, Double)]).map(_._1).toSet
       val s1 = neig1.map(_._1).toSet
       s1.size - s1.intersect(s2).size
@@ -138,7 +149,7 @@ object fastANNSuite {
     val std = math.sqrt(diff.map(a => math.pow(a - mean, 2)).sum / (diff.size - 1))
     println("Standard deviation for differences (approximate): " + std)
     println("Total number of distinct neighbors between versions: " + ndistinct.sum)
-    println("Average distinct neighbors between versions: " + ndistinct.sum / ndistinct.size)
+    println("Average distinct neighbors between versions: " + ndistinct.sum.toFloat / ndistinct.size)
     
     //val limit = 100
     //assert(mean < limit)
