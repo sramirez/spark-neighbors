@@ -32,7 +32,7 @@ class fastANN private (
     this(
       origDimension = dimensions,
       numTables = 1,
-      signatureLength = 128,
+      signatureLength = 1024,
       randomSeed = Random.nextInt()
     )
   }

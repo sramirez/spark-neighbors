@@ -10,7 +10,7 @@ trait TestSparkContext extends BeforeAndAfterAll { self: Suite =>
   override def beforeAll() {
     super.beforeAll()
     val conf = new SparkConf()
-      .setMaster("local[2]")
+      .setMaster("local[4]")
       .setAppName("LshUnitTest")
     sc = new SparkContext(conf)
   }

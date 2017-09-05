@@ -45,7 +45,7 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
   val r = (normMax - normMin) / thLength
   val tau = signatureLength * math.acos(thDistance).toFloat
   // pi radians / |m|
-  val weightHamming = 180.0f / signatureLength
+  val weightHamming = math.Pi / signatureLength
   
   /* It indicates if fuzzy memberships are computed, and then fuzzy prediciton can be used. */
   var fuzzy = false  
@@ -61,13 +61,17 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
   private[neighbors] def approxEuclidDistance(a: BHTE, b: BHTE): Option[(Float, BHTE)] = {
     
     val hamdist = BitHammingDistance.apply(a.signature, b.signature)
+    //val realDistance = EuclideanDistance.apply(a.point.features, b.point.features)
     if(hamdist <= tau){
       val ni = a.norm; val nj = b.norm
-      val realDistance = EuclideanDistance.apply(a.point.features, b.point.features)
+      
       val eudist = math.sqrt(math.pow(ni, 2) + math.pow(nj, 2) -
-        2 * ni * nj * math.cos(math.toRadians(weightHamming * hamdist)))    
-      val approxError = (realDistance - eudist) / realDistance
-      return Some(eudist.toFloat -> b)
+        2 * ni * nj * math.cos(weightHamming * hamdist))    
+      //val error = math.abs(realDistance - eudist) / realDistance
+      //val estcosi = math.cos(weightHamming * hamdist)
+      //val cos = -(math.pow(realDistance, 2) - math.pow(ni, 2) - math.pow(nj, 2)) / (2 * ni * nj)
+      val approxDist = if(!java.lang.Double.isNaN(eudist)) eudist.toFloat else .0f
+      return Some(approxDist -> b)
     }
     return None
   }
@@ -91,12 +95,21 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
     import scala.util.control.Breaks._
     /* k Nearest neighbors ordered by euclidean distance */
     var topk = new BPQ[(Float, BHTE)](quantity)(ordering)
+    //println("elems: " + elems.map(_._2.id).toString())
     
     // traverse from here to left (till r radius limit)    
     breakable{ 
       for(j <- leftIndex to 0 by -1){
-        if(q._1 - elems(j)._1 > r)
-          break
+        /*if(elems(j)._2.id == q._2.id){
+          println("ID query: "  + q._2.id)
+          println("Index query: " + index)
+          println("ID : "  + elems(j)._2.id)
+          println("Index: " + j)
+          
+          println("elems: " + elems.map(_._2.id).toString())
+        }*/
+        //if(q._1 - elems(j)._1 > r)
+          //break
         approxEuclidDistance(q._2, elems(j)._2) match {
           case Some(distNeig) => topk += distNeig
           case None => /* Skip this example. */
@@ -107,8 +120,8 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
     // traverse from here to right
     breakable{ 
       for(j <- rightIndex until elems.size){
-        if(elems(j)._1 - q._1 > r)
-          break  
+        //if(elems(j)._1 - q._1 > r)
+          //break  
         approxEuclidDistance(q._2, elems(j)._2) match {
           case Some(distNeig) => topk += distNeig
           case None => /* Skip this example. */
@@ -127,7 +140,7 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
   private[neighbors] def fullNeighbors(quantity: Int): RDD[(BHTE, Seq[(Float, BHTE)])] = {
     
     entries.mapPartitions{ iterator => 
-        val elems = iterator.toSeq
+        val elems = iterator.toArray
         val output = (0 until elems.size).map{ i =>
           val topk = fastNearestSearch(quantity, elems, i - 1, i + 1, elems(i))
           (elems(i)._2, topk.toSeq)
@@ -209,14 +222,13 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
   def neighbors(queryPoints: RDD[IDPoint], quantity: Int): RDD[(Long, Array[(Long, Double)])] = {
     val queryEntries = fastANNModel
       .generateHashTables(queryPoints, hashFunctions)
-      .sortByKey(numPartitions = entries.getNumPartitions)
-      
+      .sortByKey(numPartitions = entries.getNumPartitions)      
       
     // for each partition, search points within corresponding child tree
     entries.zipPartitions(queryEntries, preservesPartitioning = true) {
       (itEntries, itQuery) =>
         val elems = itEntries.toIndexedSeq
-        itQuery.map { q =>
+        itQuery.map { q =>            
             val i = elems.search(q)(ordering).insertionPoint
             val topNeighbors = fastNearestSearch(quantity, elems, i - 1, i, q)
               .map{ case(dist, e) => (e.id, dist.toDouble) }.toArray
@@ -310,7 +322,8 @@ object fastANNModel {
           .zipWithIndex
           .map{ case (hashFunc: LSHFunction[_], table: Int) => 
             val entry = hashFunc.hashTableEntry(id, table, vector)
-            entry.norm -> entry.asInstanceOf[BHTE]
+            entry.sigElements.size.toFloat -> entry.asInstanceOf[BHTE]
+            //entry.sigElements.size.toFloat -> entry.asInstanceOf[BHTE]
           }
         }
 
