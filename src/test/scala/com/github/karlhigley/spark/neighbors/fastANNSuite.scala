@@ -19,8 +19,9 @@ class fastANNSuite extends FunSuite with TestSparkContext {
 
   val numPoints = 1000
   val dimensions = 100
-  val density = 0.1
+  val density = 0.25
   val nClasses = 3
+  val k = 10
 
   var sparsePoints: RDD[IDPoint] = _
   var densePoints:  RDD[IDPoint] = _
@@ -35,7 +36,6 @@ class fastANNSuite extends FunSuite with TestSparkContext {
 
   test("compare fast nearest neighbor search with standard local search") {
     
-    val k = 5
     val fastAnn =
       new fastANN(dimensions)
         .setRandomSeed(1234567)
@@ -51,12 +51,12 @@ class fastANNSuite extends FunSuite with TestSparkContext {
           .0f
       }  
     }.cache()
-    val averageError = completeNN.sum() / completeNN.count()
+    val averageError = completeNN.sum() / (completeNN.count() - queryPoints.count())
     println("Average error distance: " + averageError)
     val fastnn = fastModel.neighbors(queryPoints, k).collectAsMap().toMap
     
     /** Apply batch nearest neighbor in local **/
-    val localnn = batchNearestNeighbor(queryPoints.collect(), densePoints.collect(), k)
+    val localnn = batchNearestNeighbor(queryPoints.collect(), sparsePoints.collect(), k)
     compareResults(fastnn, localnn)
     
   }
@@ -72,7 +72,7 @@ class fastANNSuite extends FunSuite with TestSparkContext {
     
     assert(fastnn.size == queryPoints.count())
     
-    runAssertions(fastnn.toArray)
+    //runAssertions(fastnn.toArray)
   }
 }
 
@@ -111,8 +111,9 @@ object fastANNSuite {
         val dist = EuclideanDistance.apply(q._2.features, c._2.features)
         topk += dist -> c
       }
-      val partitions = topk.map{ case (_, idp) => math.floor(Vectors.norm(idp._2.features, 2) % 4) }
-      println("Partitions: " + partitions)
+      val partitions = topk.map{ case (dist, idp) =>  (math.rint(Vectors.norm(idp._2.features, 2) * 100)) / 100 -> (math.rint(dist * 100)) / 100}
+      println("Element: " + Vectors.norm(q._2.features, 2))
+      println("Partitions: " + partitions.toString)
       (q._1, topk.map{ case (dist, idp) => idp._1 -> dist}.toArray )
     }.toMap
   }
@@ -132,7 +133,10 @@ object fastANNSuite {
       val asd = exactNeighbors.getOrElse(key, Array.empty[(Long, Double)])
       val s2 = exactNeighbors.getOrElse(key, Array.empty[(Long, Double)]).map(_._1).toSet
       val s1 = neig1.map(_._1).toSet
-      s1.size - s1.intersect(s2).size
+
+      val dif = s1.size - s1.intersect(s2).size
+      assert(dif < s1.size)
+      dif      
     }
     
     val mean = diff.sum / diff.size    

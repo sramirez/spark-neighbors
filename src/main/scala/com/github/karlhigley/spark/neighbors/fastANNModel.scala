@@ -3,7 +3,7 @@ package com.github.karlhigley.spark.neighbors
 import org.apache.spark.SparkContext
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
-import org.apache.spark.mllib.linalg.Vectors
+import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.feature.LabeledPoint
 import org.apache.hadoop.mapreduce.Partitioner
 import com.github.karlhigley.spark.neighbors.collision.CollisionStrategy
@@ -47,6 +47,10 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
   // pi radians / |m|
   val weightHamming = math.Pi / signatureLength
   
+  println("Tau is: " + tau)
+  println("R is: " + r)
+  println("normMax: " +  normMax)
+  
   /* It indicates if fuzzy memberships are computed, and then fuzzy prediciton can be used. */
   var fuzzy = false  
   
@@ -61,8 +65,8 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
   private[neighbors] def approxEuclidDistance(a: BHTE, b: BHTE): Option[(Float, BHTE)] = {
     
     val hamdist = BitHammingDistance.apply(a.signature, b.signature)
-    //val realDistance = EuclideanDistance.apply(a.point.features, b.point.features)
-    if(hamdist <= tau){
+    val realDistance = EuclideanDistance.apply(a.point.features, b.point.features)
+    //if(hamdist <= tau){
       val ni = a.norm; val nj = b.norm
       
       val eudist = math.sqrt(math.pow(ni, 2) + math.pow(nj, 2) -
@@ -71,9 +75,17 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
       //val estcosi = math.cos(weightHamming * hamdist)
       //val cos = -(math.pow(realDistance, 2) - math.pow(ni, 2) - math.pow(nj, 2)) / (2 * ni * nj)
       val approxDist = if(!java.lang.Double.isNaN(eudist)) eudist.toFloat else .0f
-      return Some(approxDist -> b)
-    }
-    return None
+      return Some(approxDist.toFloat -> b)
+    //}
+    //return Some(realDistance.toFloat -> b)
+    //return None
+  }
+  
+  def isSorted[A](as: Seq[A], ordered: (A, A) => Boolean): Boolean = {
+    if (as.size < 2)
+      true
+    else
+      as.sliding(2).find(x => !ordered(x(0),x(1))).isEmpty
   }
       
   /**
@@ -93,6 +105,7 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
     
     
     import scala.util.control.Breaks._
+    
     /* k Nearest neighbors ordered by euclidean distance */
     var topk = new BPQ[(Float, BHTE)](quantity)(ordering)
     //println("elems: " + elems.map(_._2.id).toString())
@@ -128,7 +141,6 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
         }
       }
     }
-    
     topk
   } 
 
@@ -141,6 +153,8 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
     
     entries.mapPartitions{ iterator => 
         val elems = iterator.toArray
+        if(!isSorted(elems.map(_._1),  {(a:Float,b:Float) => a <= b}))
+          println("Error")
         val output = (0 until elems.size).map{ i =>
           val topk = fastNearestSearch(quantity, elems, i - 1, i + 1, elems(i))
           (elems(i)._2, topk.toSeq)
@@ -222,12 +236,14 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
   def neighbors(queryPoints: RDD[IDPoint], quantity: Int): RDD[(Long, Array[(Long, Double)])] = {
     val queryEntries = fastANNModel
       .generateHashTables(queryPoints, hashFunctions)
-      .sortByKey(numPartitions = entries.getNumPartitions)      
+      .partitionBy(entries.partitioner.get)     
       
     // for each partition, search points within corresponding child tree
     entries.zipPartitions(queryEntries, preservesPartitioning = true) {
       (itEntries, itQuery) =>
-        val elems = itEntries.toIndexedSeq
+        val elems = itEntries.toArray.toIndexedSeq
+        //if(!isSorted(elems.map(_._1),  {(a:Float,b:Float) => a < b}))
+          //println("Error")
         itQuery.map { q =>            
             val i = elems.search(q)(ordering).insertionPoint
             val topNeighbors = fastNearestSearch(quantity, elems, i - 1, i, q)
@@ -251,12 +267,15 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
     
     val queryEntries = fastANNModel
       .generateHashTables(queryPoints, hashFunctions)
-      .sortByKey(numPartitions = entries.getNumPartitions)
+      .partitionBy(entries.partitioner.get)
+      //.sortByKey(numPartitions = entries.getNumPartitions)
+      
       
     // for each partition, search points within corresponding child tree
     entries.zipPartitions(queryEntries, preservesPartitioning = true) {
       (itEntries, itQuery) =>
-        val elems = itEntries.toIndexedSeq
+        val elems = itEntries.toArray.toIndexedSeq
+        //assert(isSorted(elems.map(_._1),  {(a:Float,b:Float) => a <= b}))
         itQuery.map { q =>
             val i = elems.search(q)(ordering).insertionPoint
             val topNeighbors = fastNearestSearch(quantity, elems, i - 1, i, q)
@@ -322,8 +341,9 @@ object fastANNModel {
           .zipWithIndex
           .map{ case (hashFunc: LSHFunction[_], table: Int) => 
             val entry = hashFunc.hashTableEntry(id, table, vector)
-            entry.sigElements.size.toFloat -> entry.asInstanceOf[BHTE]
             //entry.sigElements.size.toFloat -> entry.asInstanceOf[BHTE]
+            //Vectors.norm(entry.point.features, 1).toFloat -> entry.asInstanceOf[BHTE]
+            entry.norm -> entry.asInstanceOf[BHTE]
           }
         }
 
