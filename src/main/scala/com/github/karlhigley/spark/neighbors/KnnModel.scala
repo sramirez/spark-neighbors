@@ -28,7 +28,7 @@ class KnnModel(val points: RDD[IDPoint],
    * collision strategy to the hash tables and then computing
    * the actual distance between candidate pairs.
    */
-  def neighbors(quantity: Int): RDD[Array[IDPoint]] = {
+  def neighbors(quantity: Int): RDD[(LabeledPoint, Array[LabeledPoint])] = {
     val bquery = sc.broadcast(points.collect())
     computeDistances(bquery, quantity)
   }
@@ -39,7 +39,7 @@ class KnnModel(val points: RDD[IDPoint],
    * only potential matches, cogrouping the two RDDs, and
    * computing candidate distances in the "normal" fashion.
    */
-  def neighbors(queryPoints: RDD[IDPoint], quantity: Int): RDD[Array[IDPoint]] = {
+  def neighbors(queryPoints: RDD[IDPoint], quantity: Int): RDD[(LabeledPoint, Array[LabeledPoint])] = {
     val bquery = sc.broadcast(queryPoints.collect())    
     computeDistances(bquery, quantity)
   }
@@ -47,7 +47,7 @@ class KnnModel(val points: RDD[IDPoint],
   /**
    * Compute the actual distance between candidate pairs using the supplied distance measure.
    */
-  private def computeDistances(bquery: Broadcast[Array[IDPoint]], quantity: Int): RDD[Array[IDPoint]] = {
+  private def computeDistances(bquery: Broadcast[Array[IDPoint]], quantity: Int): RDD[(LabeledPoint, Array[LabeledPoint])] = {
     val neighbors = points.mapPartitions{ it =>
       val query = bquery.value
       val topk = (0 until query.size).map(i => new BPQ[(Float, IDPoint)](quantity)(ordering)).toArray
@@ -55,10 +55,10 @@ class KnnModel(val points: RDD[IDPoint],
         val ref = it.next()
         (0 until query.size).map(i => topk(i) += distance(ref._2.features, query(i)._2.features).toFloat -> query(i))
       }
-      val oit = (0 until query.size).map(i => query(i)._1 -> topk(i))
+      val oit = (0 until query.size).map(i => query(i)._2 -> topk(i))
       oit.toIterator    
     }.reduceByKey{ case (x, y) => x ++= y}
-    neighbors.map(_._2.map(_._2).toArray) 
+    neighbors.mapValues(_.toArray.map(_._2._2)) 
   }
   
 }

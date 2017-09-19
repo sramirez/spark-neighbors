@@ -111,7 +111,8 @@ object fastANNSuite {
         val dist = EuclideanDistance.apply(q._2.features, c._2.features)
         topk += dist -> c
       }
-      val partitions = topk.map{ case (dist, idp) =>  (math.rint(Vectors.norm(idp._2.features, 2) * 100)) / 100 -> (math.rint(dist * 100)) / 100}
+      val partitions = topk.map{ case (dist, idp) =>  
+        (math.rint(Vectors.norm(idp._2.features, 2) * 100)) / 100 -> (math.rint(dist * 100)) / 100}
       println("Element: " + Vectors.norm(q._2.features, 2))
       println("Partitions: " + partitions.toString)
       (q._1, topk.map{ case (dist, idp) => idp._1 -> dist}.toArray )
