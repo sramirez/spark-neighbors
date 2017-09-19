@@ -6,7 +6,10 @@ import org.apache.spark.ml.linalg.{ Vector => MLLibVector }
 import com.github.karlhigley.spark.neighbors.lsh.HashTableEntry
 import org.apache.spark.ml.feature.LabeledPoint
 import com.github.karlhigley.spark.neighbors.ANNModel.IDPoint
+import org.junit.runner.RunWith
+import org.scalatest.junit.JUnitRunner
 
+@RunWith(classOf[JUnitRunner])
 class ANNSuite extends FunSuite with TestSparkContext {
   import ANNSuite._
 
@@ -57,9 +60,9 @@ class ANNSuite extends FunSuite with TestSparkContext {
   test("compute euclidean nearest neighbors as a batch") {
     val ann =
       new ANN(dimensions, "euclidean")
-        .setTables(1)
-        .setSignatureLength(4)
-        .setBucketWidth(2)
+        .setTables(30)
+        .setSignatureLength(10)
+        .setBucketWidth(4)
 
     val model = ann.train(sparsePoints)
     val neighbors = model.neighbors(10)

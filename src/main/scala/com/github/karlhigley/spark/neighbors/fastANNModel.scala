@@ -30,7 +30,7 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
                val signatureLength: Int,               
                val nClasses: Int,
                val persistenceLevel: StorageLevel,
-               val thLength: Int = 5,
+               val thLength: Int = 3,
                val thDistance: Float = .9f) extends Serializable {
 
   import fastANNModel._
@@ -49,6 +49,7 @@ class fastANNModel(var entries: RDD[(Float, BHTE)],
   
   println("Tau is: " + tau)
   println("R is: " + r)
+  println("normMin: " +  normMin)
   println("normMax: " +  normMax)
   
   /* It indicates if fuzzy memberships are computed, and then fuzzy prediciton can be used. */

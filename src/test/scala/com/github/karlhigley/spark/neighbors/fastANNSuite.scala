@@ -19,7 +19,7 @@ class fastANNSuite extends FunSuite with TestSparkContext {
 
   val numPoints = 1000
   val dimensions = 100
-  val density = 0.25
+  val density = 0.5
   val nClasses = 3
   val k = 10
 

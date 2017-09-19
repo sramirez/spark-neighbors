@@ -6,7 +6,10 @@ import org.apache.spark.ml.linalg.Vector
 import com.github.karlhigley.spark.neighbors.lsh.HashTableEntry
 import com.github.karlhigley.spark.neighbors.ANNModel.IDPoint
 import org.apache.spark.ml.feature.LabeledPoint
+import org.junit.runner.RunWith
+import org.scalatest.junit.JUnitRunner
 
+@RunWith(classOf[JUnitRunner])
 class ANNModelSuite extends FunSuite with TestSparkContext {
   val numPoints = 1000
   val dimensions = 100
